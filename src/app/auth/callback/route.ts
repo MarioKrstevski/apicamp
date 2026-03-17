@@ -17,6 +17,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/auth/login?error=expired", appUrl));
   }
 
-  // Redirect to /dashboard — middleware routes admins to /manage-dashboard
-  return NextResponse.redirect(new URL("/dashboard", appUrl));
+  // Show verified message then dashboard
+  return NextResponse.redirect(new URL("/auth/verified", appUrl));
 }
