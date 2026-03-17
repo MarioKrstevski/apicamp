@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { getTableForCategory } from "@/lib/table-for-category"
 import { applyVersionShape } from "@/lib/versioning"
 import { validateFields } from "@/lib/validation"
 import { getLocaleAdminId } from "@/lib/locales"
@@ -12,12 +13,13 @@ import { bootstrap, type Params } from "../route"
 type ParamsWithId = Params & { id: string }
 
 async function getOwnedRow(category: string, id: string, accountId: string, locale: string, config: { locale?: boolean }) {
+  const { table, isPlatformTable } = getTableForCategory(category)
   const supabase = await createClient()
   let query = supabase
-    .from("user_rows")
+    .from(table)
     .select("*")
     .eq("id", id)
-    .eq("category", category)
+  if (!isPlatformTable) query = query.eq("category", category)
 
   if (config.locale) {
     const localeAdminId = await getLocaleAdminId(locale)
@@ -69,15 +71,12 @@ export async function PUT(
     return NextResponse.json({ error: "Writing data requires a paid account" }, { status: 403 })
   }
 
+  const { table, isPlatformTable } = getTableForCategory(category)
   const supabase = await createClient()
 
-  const { data: existing, error: fetchError } = await supabase
-    .from("user_rows")
-    .select("*")
-    .eq("id", id)
-    .eq("category", category)
-    .eq("user_id", account.id)
-    .single()
+  let fetchQuery = supabase.from(table).select("*").eq("id", id).eq("user_id", account.id)
+  if (!isPlatformTable) fetchQuery = fetchQuery.eq("category", category)
+  const { data: existing, error: fetchError } = await fetchQuery.single()
 
   if (fetchError || !existing) {
     return NextResponse.json({ error: "Not found or not yours" }, { status: 404 })
@@ -106,7 +105,7 @@ export async function PUT(
   const merged = { ...existing.data, ...body }
 
   const { data, error } = await supabase
-    .from("user_rows")
+    .from(table)
     .update({ data: merged })
     .eq("id", id)
     .select()
@@ -140,15 +139,12 @@ export async function DELETE(
     return NextResponse.json({ error: "Locale admins cannot delete rows" }, { status: 403 })
   }
 
+  const { table, isPlatformTable } = getTableForCategory(category)
   const supabase = await createClient()
 
-  const { data: existing, error: fetchError } = await supabase
-    .from("user_rows")
-    .select("*")
-    .eq("id", id)
-    .eq("category", category)
-    .eq("user_id", account.id)
-    .single()
+  let deleteFetchQuery = supabase.from(table).select("*").eq("id", id).eq("user_id", account.id)
+  if (!isPlatformTable) deleteFetchQuery = deleteFetchQuery.eq("category", category)
+  const { data: existing, error: fetchError } = await deleteFetchQuery.single()
 
   if (fetchError || !existing) {
     return NextResponse.json({ error: "Not found or not yours" }, { status: 404 })
@@ -159,7 +155,7 @@ export async function DELETE(
   }
 
   const { error } = await supabase
-    .from("user_rows")
+    .from(table)
     .delete()
     .eq("id", id)
 

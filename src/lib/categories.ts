@@ -1,7 +1,6 @@
-// Stub — pending implementation (see CLAUDE.md task list)
-
+import registry from "@/config/registry"
 import type { CategoryConfig } from "@/types/category"
 
-export function getCategoryConfig(_category: string): CategoryConfig | null {
-  throw new Error("getCategoryConfig not implemented yet")
+export function getCategoryConfig(category: string): CategoryConfig | null {
+  return registry[category] ?? null
 }

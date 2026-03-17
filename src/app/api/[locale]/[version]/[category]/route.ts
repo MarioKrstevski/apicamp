@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { getCategoryConfig } from "@/lib/categories"
+import { getTableForCategory } from "@/lib/table-for-category"
 import { validateApiKey, type Account } from "@/lib/auth"
 import { checkRateLimit } from "@/lib/rateLimit"
 import type { CategoryConfig } from "@/types/category"
@@ -107,12 +108,13 @@ export async function GET(req: NextRequest, { params: _params }: { params: Promi
     return NextResponse.json({ data: [], meta: { total: 0, page, limit, totalPages: 0 } })
   }
 
-  // Build query
+  // Build query (platform tables: products, users; else user_rows with category filter)
+  const { table, isPlatformTable } = getTableForCategory(category)
   const supabase = await createClient()
   let query = supabase
-    .from("user_rows")
+    .from(table)
     .select("*", { count: "exact" })
-    .eq("category", category)
+  if (!isPlatformTable) query = query.eq("category", category)
 
   // Ownership filter
   if (config.locale) {
@@ -233,13 +235,15 @@ export async function POST(req: NextRequest, { params: _params }: { params: Prom
   }
 
   // Row limit check (not for locale admins — they seed system data)
+  const { table: insertTable, isPlatformTable: insertIsPlatform } = getTableForCategory(category)
   if (account.role !== "locale_admin" && account.role !== "superadmin") {
     const supabase = await createClient()
-    const { count } = await supabase
-      .from("user_rows")
+    let limitQuery = supabase
+      .from(insertTable)
       .select("*", { count: "exact", head: true })
       .eq("user_id", account.id)
-      .eq("category", category)
+    if (!insertIsPlatform) limitQuery = limitQuery.eq("category", category)
+    const { count } = await limitQuery
 
     if ((count ?? 0) >= (config.maxUserRows ?? 100)) {
       return NextResponse.json(
@@ -253,15 +257,17 @@ export async function POST(req: NextRequest, { params: _params }: { params: Prom
   if (config.fields.createdAt?.auto) body.createdAt = new Date().toISOString()
 
   const supabase = await createClient()
+  const insertPayload: Record<string, unknown> = {
+    user_id: account.id,
+    locale: config.locale ? locale : "en",
+    is_system: account.role === "locale_admin" || account.role === "superadmin",
+    data: body
+  }
+  if (!insertIsPlatform) insertPayload.category = category
+
   const { data, error } = await supabase
-    .from("user_rows")
-    .insert({
-      user_id: account.id,
-      category,
-      locale: config.locale ? locale : "en",
-      is_system: account.role === "locale_admin" || account.role === "superadmin",
-      data: body
-    })
+    .from(insertTable)
+    .insert(insertPayload)
     .select()
     .single()
 
