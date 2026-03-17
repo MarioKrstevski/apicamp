@@ -22,12 +22,13 @@ export function LoginForm({ expiredError }: { expiredError: boolean }) {
 
     if (error) {
       setError(error.message);
+      setPassword("");
       setLoading(false);
       return;
     }
 
-    router.push("/dashboard");
     router.refresh();
+    router.push("/dashboard");
   }
 
   return (

@@ -31,6 +31,7 @@ export default function SignupPage() {
       return;
     }
 
+    setLoading(false);
     setSuccess(true);
   }
 
