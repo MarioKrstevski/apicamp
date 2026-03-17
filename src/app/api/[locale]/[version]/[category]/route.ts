@@ -12,7 +12,7 @@ import { getLocaleAdminId } from "@/lib/locales"
 import { logAudit } from "@/lib/audit"
 import { applyModifier, extractModifier } from "@/lib/modifiers"
 
-type Params = {
+export type Params = {
   locale: string
   version: string
   category: string
@@ -20,7 +20,7 @@ type Params = {
 
 // ─── MIDDLEWARE HELPERS ───────────────────────────────────────────────────
 
-async function bootstrap(req: NextRequest, params: Params) {
+export async function bootstrap(req: NextRequest, params: Params) {
   const { locale, version, category } = params
 
   // API key auth
@@ -62,7 +62,8 @@ async function bootstrap(req: NextRequest, params: Params) {
 
 // ─── GET — List ───────────────────────────────────────────────────────────
 
-export async function GET(req: NextRequest, { params }: { params: Params }) {
+export async function GET(req: NextRequest, { params: _params }: { params: Promise<Params> }) {
+  const params = await _params
   const { locale, version, category } = params
   const boot = await bootstrap(req, params)
   if (boot.error) return boot.error
@@ -85,7 +86,7 @@ export async function GET(req: NextRequest, { params }: { params: Params }) {
 
   // Filters — e.g. ?category=electronics&inStock=true
   const filters: Record<string, string> = {}
-  config.filterable?.forEach(field => {
+  config.filterable?.forEach((field: string) => {
     const val = searchParams.get(field)
     if (val) filters[field] = val
   })
@@ -102,7 +103,7 @@ export async function GET(req: NextRequest, { params }: { params: Params }) {
   }
 
   // Build query
-  const supabase = createClient()
+  const supabase = await createClient()
   let query = supabase
     .from("user_rows")
     .select("*", { count: "exact" })
@@ -128,7 +129,7 @@ export async function GET(req: NextRequest, { params }: { params: Params }) {
   // Search across searchable fields
   if (search && config.searchable?.length > 0) {
     const conditions = config.searchable
-      .map(f => `data->>'${f}'.ilike.%${search}%`)
+      .map((f: string) => `data->>'${f}'.ilike.%${search}%`)
       .join(",")
     query = query.or(conditions)
   }
@@ -148,7 +149,7 @@ export async function GET(req: NextRequest, { params }: { params: Params }) {
 
   // Apply version shape
   const versionFields = config.versions[version]
-  const shaped = (data ?? []).map(row => applyVersionShape(row.data, versionFields))
+  const shaped = (data ?? []).map((row: { data: unknown }) => applyVersionShape(row.data, versionFields))
 
   // Chaos modifier — randomly fail 30% of requests
   if (modifier === "chaos" && Math.random() < 0.3) {
@@ -188,34 +189,10 @@ export async function GET(req: NextRequest, { params }: { params: Params }) {
   return response
 }
 
-// ─── GET — Single row ─────────────────────────────────────────────────────
-
-export async function GET_ONE(req: NextRequest, { params }: { params: Params & { id: string } }) {
-  const { locale, version, category, id } = params
-  const boot = await bootstrap(req, params)
-  if (boot.error) return boot.error
-  const { account, config } = boot
-
-  const localeAdminId = await getLocaleAdminId(locale)
-  const supabase = createClient()
-
-  const { data, error } = await supabase
-    .from("user_rows")
-    .select("*")
-    .eq("id", id)
-    .eq("category", category)
-    .or(`user_id.eq.${account.id},user_id.eq.${localeAdminId}`)
-    .single()
-
-  if (error || !data) return NextResponse.json({ error: "Not found" }, { status: 404 })
-
-  const versionFields = config.versions[version]
-  return NextResponse.json(applyVersionShape(data.data, versionFields))
-}
-
 // ─── POST ─────────────────────────────────────────────────────────────────
 
-export async function POST(req: NextRequest, { params }: { params: Params }) {
+export async function POST(req: NextRequest, { params: _params }: { params: Promise<Params> }) {
+  const params = await _params
   const { locale, version, category } = params
   const boot = await bootstrap(req, params)
   if (boot.error) return boot.error
@@ -251,7 +228,7 @@ export async function POST(req: NextRequest, { params }: { params: Params }) {
 
   // Row limit check (not for locale admins — they seed system data)
   if (account.role !== "locale_admin" && account.role !== "superadmin") {
-    const supabase = createClient()
+    const supabase = await createClient()
     const { count } = await supabase
       .from("user_rows")
       .select("*", { count: "exact", head: true })
@@ -269,7 +246,7 @@ export async function POST(req: NextRequest, { params }: { params: Params }) {
   // Auto fields
   if (config.fields.createdAt?.auto) body.createdAt = new Date().toISOString()
 
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data, error } = await supabase
     .from("user_rows")
     .insert({
@@ -288,128 +265,4 @@ export async function POST(req: NextRequest, { params }: { params: Params }) {
 
   const versionFields = config.versions[version]
   return NextResponse.json(applyVersionShape(data.data, versionFields), { status: 201 })
-}
-
-// ─── PUT ──────────────────────────────────────────────────────────────────
-
-export async function PUT(req: NextRequest, { params }: { params: Params & { id: string } }) {
-  const { locale, version, category, id } = params
-  const boot = await bootstrap(req, params)
-  if (boot.error) return boot.error
-  const { account, config } = boot
-
-  if (account.tier === "free") {
-    return NextResponse.json({ error: "Writing data requires a paid account" }, { status: 403 })
-  }
-
-  // Locale admin cannot DELETE — but can PUT (update)
-  // Superadmin can do anything
-
-  const supabase = createClient()
-
-  // Fetch existing row — must belong to this user (or locale admin for their locale)
-  const canEdit =
-    account.role === "superadmin"
-      ? `user_id.eq.${account.id}`
-      : account.role === "locale_admin"
-      ? `user_id.eq.${account.id}`
-      : `user_id.eq.${account.id}`
-
-  const { data: existing, error: fetchError } = await supabase
-    .from("user_rows")
-    .select("*")
-    .eq("id", id)
-    .eq("category", category)
-    .or(canEdit)
-    .single()
-
-  if (fetchError || !existing) {
-    return NextResponse.json({ error: "Not found or not yours" }, { status: 404 })
-  }
-
-  // Cannot update system rows unless locale_admin or superadmin
-  if (existing.is_system && account.role === "user") {
-    return NextResponse.json({ error: "Cannot modify system rows" }, { status: 403 })
-  }
-
-  let body: Record<string, unknown>
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
-  }
-
-  if (JSON.stringify(body).length > 10240) {
-    return NextResponse.json({ error: "Payload too large (max 10kb)" }, { status: 413 })
-  }
-
-  const validation = validateFields(body, config.fields, { partial: true })
-  if (!validation.valid) {
-    return NextResponse.json({ error: "Validation failed", details: validation.errors }, { status: 422 })
-  }
-
-  // Merge existing data with new data
-  const merged = { ...existing.data, ...body }
-
-  const { data, error } = await supabase
-    .from("user_rows")
-    .update({ data: merged })
-    .eq("id", id)
-    .select()
-    .single()
-
-  if (error) return NextResponse.json({ error: "Update failed", detail: error.message }, { status: 500 })
-
-  await logAudit(account.id, "PUT", category, id)
-
-  const versionFields = config.versions[version]
-  return NextResponse.json(applyVersionShape(data.data, versionFields))
-}
-
-// ─── DELETE ───────────────────────────────────────────────────────────────
-
-export async function DELETE(req: NextRequest, { params }: { params: Params & { id: string } }) {
-  const { locale, version, category, id } = params
-  const boot = await bootstrap(req, params)
-  if (boot.error) return boot.error
-  const { account, config } = boot
-
-  if (account.tier === "free") {
-    return NextResponse.json({ error: "Writing data requires a paid account" }, { status: 403 })
-  }
-
-  // Locale admins CANNOT delete — safety rule
-  if (account.role === "locale_admin") {
-    return NextResponse.json({ error: "Locale admins cannot delete rows" }, { status: 403 })
-  }
-
-  const supabase = createClient()
-
-  const { data: existing, error: fetchError } = await supabase
-    .from("user_rows")
-    .select("*")
-    .eq("id", id)
-    .eq("category", category)
-    .eq("user_id", account.id)   // can only delete own rows
-    .single()
-
-  if (fetchError || !existing) {
-    return NextResponse.json({ error: "Not found or not yours" }, { status: 404 })
-  }
-
-  // Cannot delete system rows — ever
-  if (existing.is_system) {
-    return NextResponse.json({ error: "System rows cannot be deleted" }, { status: 403 })
-  }
-
-  const { error } = await supabase
-    .from("user_rows")
-    .delete()
-    .eq("id", id)
-
-  if (error) return NextResponse.json({ error: "Delete failed", detail: error.message }, { status: 500 })
-
-  await logAudit(account.id, "DELETE", category, id)
-
-  return new NextResponse(null, { status: 204 })
 }

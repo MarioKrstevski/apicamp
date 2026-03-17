@@ -18,7 +18,7 @@ cp .env.example .env.local   # fill in your Supabase credentials
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3003](http://localhost:3003).
 
 ## Environment Variables
 
@@ -29,7 +29,7 @@ Copy `.env.example` to `.env.local` and fill in:
 | `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon/public key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (server only) |
-| `NEXT_PUBLIC_APP_URL` | App URL (default: `http://localhost:3000`) |
+| `NEXT_PUBLIC_APP_URL` | App URL (default: `http://localhost:3003`) |
 | `LOCALE_ADMIN_EN/FR/ES/SR` | UUIDs of locale admin accounts in Supabase Auth |
 
 ## API

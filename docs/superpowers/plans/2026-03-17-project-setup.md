@@ -83,7 +83,7 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
 
 # ─── App ─────────────────────────────────────────────────────────────────────
 # Full URL of the app (used for auth redirects and docs examples)
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_URL=http://localhost:3003
 
 # ─── Locale Admin Account UUIDs ──────────────────────────────────────────────
 # These are the Supabase Auth user IDs of the locale admin accounts.

@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { refreshSession } from "@/lib/supabase/middleware";
 import { isLocaleAdmin } from "@/lib/locale-admin";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { response, userId } = await refreshSession(request);
   const { pathname } = request.nextUrl;
 
