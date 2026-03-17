@@ -41,7 +41,7 @@ export async function GET(
   const params = await _params
   const { locale, version, category, id } = params
   const boot = await bootstrap(req, params)
-  if (boot.error) return boot.error
+  if ("error" in boot) return boot.error
   const { account, config } = boot
 
   const row = await getOwnedRow(category, id, account.id, locale, config)
@@ -62,7 +62,7 @@ export async function PUT(
   const params = await _params
   const { locale: _locale, version, category, id } = params
   const boot = await bootstrap(req, params)
-  if (boot.error) return boot.error
+  if ("error" in boot) return boot.error
   const { account, config } = boot
 
   if (account.tier === "free") {
@@ -129,7 +129,7 @@ export async function DELETE(
   const params = await _params
   const { version: _version, category, id } = params
   const boot = await bootstrap(req, params)
-  if (boot.error) return boot.error
+  if ("error" in boot) return boot.error
   const { account } = boot
 
   if (account.tier === "free") {

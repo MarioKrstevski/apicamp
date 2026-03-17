@@ -1,4 +1,23 @@
 // Stub type — full Zod schema definition is pending (see CLAUDE.md Task 1)
-// This file exists only to satisfy TypeScript module resolution.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type CategoryConfig = Record<string, any>;
+
+export type CategoryConfig = {
+  name: string
+  label: string
+  description?: string
+  icon?: string
+  locale?: boolean
+  localeFields?: string[]
+  versioning?: boolean
+  searchable?: string[] | boolean
+  allowUserRows?: boolean
+  fileUpload?: boolean
+  versions: Record<string, string[]>
+  fields: Record<string, { auto?: boolean } & Record<string, unknown>>
+  sortable?: string[]
+  filterable?: string[]
+  maxUserRows?: number
+  modifiers?: string[]
+  seedCount?: number
+  queryParams?: Record<string, unknown>
+  docs?: Record<string, unknown>
+}

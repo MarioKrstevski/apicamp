@@ -4,8 +4,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { getCategoryConfig } from "@/lib/categories"
-import { validateApiKey } from "@/lib/auth"
+import { validateApiKey, type Account } from "@/lib/auth"
 import { checkRateLimit } from "@/lib/rateLimit"
+import type { CategoryConfig } from "@/types/category"
 import { applyVersionShape } from "@/lib/versioning"
 import { validateFields } from "@/lib/validation"
 import { getLocaleAdminId } from "@/lib/locales"
@@ -20,7 +21,11 @@ export type Params = {
 
 // ─── MIDDLEWARE HELPERS ───────────────────────────────────────────────────
 
-export async function bootstrap(req: NextRequest, params: Params) {
+export type BootstrapResult =
+  | { error: NextResponse }
+  | { account: Account; config: CategoryConfig }
+
+export async function bootstrap(req: NextRequest, params: Params): Promise<BootstrapResult> {
   const { locale, version, category } = params
 
   // API key auth
@@ -66,7 +71,7 @@ export async function GET(req: NextRequest, { params: _params }: { params: Promi
   const params = await _params
   const { locale, version, category } = params
   const boot = await bootstrap(req, params)
-  if (boot.error) return boot.error
+  if ("error" in boot) return boot.error
   const { account, config } = boot
 
   const { searchParams } = new URL(req.url)
@@ -126,9 +131,10 @@ export async function GET(req: NextRequest, { params: _params }: { params: Promi
     }
   }
 
-  // Search across searchable fields
-  if (search && config.searchable?.length > 0) {
-    const conditions = config.searchable
+  // Search across searchable fields (config.searchable can be string[] or boolean)
+  const searchable = Array.isArray(config.searchable) ? config.searchable : []
+  if (search && searchable.length > 0) {
+    const conditions = searchable
       .map((f: string) => `data->>'${f}'.ilike.%${search}%`)
       .join(",")
     query = query.or(conditions)
@@ -195,7 +201,7 @@ export async function POST(req: NextRequest, { params: _params }: { params: Prom
   const params = await _params
   const { locale, version, category } = params
   const boot = await bootstrap(req, params)
-  if (boot.error) return boot.error
+  if ("error" in boot) return boot.error
   const { account, config } = boot
 
   // Free tier cannot write
