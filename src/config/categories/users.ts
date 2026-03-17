@@ -1,4 +1,4 @@
-import { CategoryConfig } from "@/lib/types";
+import { CategoryConfig } from "@/types/category";
 
 const config: CategoryConfig = {
   // ─── Identity ────────────────────────────────────────────────────────────────
