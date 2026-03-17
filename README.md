@@ -1,36 +1,70 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# apicamp
+
+A hosted backend-as-a-service for developers learning REST APIs. Pre-seeded data across multiple categories, writable user-scoped rows, versioned endpoints, locale support, and behavior modifiers — all under one API key.
+
+## Tech Stack
+
+- **Next.js 16** (App Router)
+- **Supabase** — Postgres, Auth, Storage
+- **Zod** — config schema validation
+- **Tailwind CSS v4** + **shadcn/ui**
+- **pnpm**
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
+cp .env.example .env.local   # fill in your Supabase credentials
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment Variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Copy `.env.example` to `.env.local` and fill in:
 
-## Learn More
+| Variable | Description |
+|----------|-------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon/public key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (server only) |
+| `NEXT_PUBLIC_APP_URL` | App URL (default: `http://localhost:3000`) |
+| `LOCALE_ADMIN_EN/FR/ES/SR` | UUIDs of locale admin accounts in Supabase Auth |
 
-To learn more about Next.js, take a look at the following resources:
+## API
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+GET    /api/[locale]/[version]/[category]
+GET    /api/[locale]/[version]/[category]/[id]
+POST   /api/[locale]/[version]/[category]
+PUT    /api/[locale]/[version]/[category]/[id]
+DELETE /api/[locale]/[version]/[category]/[id]
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Example: `GET /api/en/v2/users?page=1&limit=10&sort=age&order=asc`
 
-## Deploy on Vercel
+### Behavior Modifiers
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+/api/en/v1/slow2/users   — 1500ms delay
+/api/en/v1/chaos/users   — 30% random errors
+/api/en/v1/empty/users   — always returns []
+/api/en/v1/stale/users   — fake staleness headers
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Scripts
+
+```bash
+pnpm tsx scripts/generate-schema.ts          # output base Supabase SQL
+pnpm tsx scripts/generate-seeds.ts [name]    # output seed SQL for a category
+```
+
+## Adding a New Category
+
+1. Create `src/config/categories/[name].ts`
+2. Add it to `src/config/registry.ts`
+3. Run the seed script and paste output into Supabase SQL editor
+4. Done — the route and docs page exist automatically
+
+See `CLAUDE.md` for full architecture details and conventions.
