@@ -198,19 +198,23 @@ export default registry
 | File | Action |
 |------|--------|
 | `src/middleware.ts` | **Create** — root middleware |
+| `src/lib/supabase/middleware.ts` | **Replace** — remove `updateSession()`, add pure `refreshSession()` |
 | `src/lib/locale-admin.ts` | Create |
 | `src/config/registry.ts` | Create — `{ users, products }` map |
-| `src/components/nav.tsx` | Create — Server Component |
+| `src/components/navbar.tsx` | Replace — async Server Component (keep existing filename) |
 | `src/components/signout-button.tsx` | Create — Client Component |
-| `src/app/layout.tsx` | Update — include Nav |
+| `src/app/layout.tsx` | Update — remove `<Navbar />`, nav moves to `(main)` layout |
+| `src/app/(main)/layout.tsx` | Create — route group layout with Navbar (excludes `/auth/*`) |
+| `src/app/(main)/page.tsx` | Create — landing page (route group doesn't affect URL `/`) |
+| `src/app/page.tsx` | Delete — replaced by `(main)/page.tsx` |
 | `src/app/auth/layout.tsx` | Create — minimal centered, no nav |
-| `src/app/auth/login/page.tsx` | Create |
+| `src/app/auth/login/page.tsx` | Create — Server Component, passes `?error` to `LoginForm` |
+| `src/app/auth/login/LoginForm.tsx` | Create — Client Component form |
 | `src/app/auth/signup/page.tsx` | Create |
 | `src/app/auth/callback/route.ts` | Create |
 | `src/app/auth/signout/route.ts` | Create |
-| `src/app/dashboard/page.tsx` | Create |
-| `src/app/manage-dashboard/page.tsx` | Create |
-| `src/app/page.tsx` | Update — landing content only, nav in layout |
+| `src/app/(main)/dashboard/page.tsx` | Create |
+| `src/app/(main)/manage-dashboard/page.tsx` | Create |
 | `src/config/categories/users.ts` | Update — fix import path to `@/types/category` |
 | `.env.example` | Update — replace old anon key name |
 | `CLAUDE.md` | Update — fix env var name |
