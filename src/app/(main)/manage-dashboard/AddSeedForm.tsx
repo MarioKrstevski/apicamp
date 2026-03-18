@@ -5,10 +5,10 @@ import { addSeedData, type AddSeedDataResult } from './actions'
 import { Button } from '@/components/ui/button'
 
 type Props = {
-  category: string
+  table: string
 }
 
-export function AddSeedForm({ category }: Props) {
+export function AddSeedForm({ table }: Props) {
   const [json, setJson] = useState('')
   const [result, setResult] = useState<AddSeedDataResult | null>(null)
   const [pending, setPending] = useState(false)
@@ -18,7 +18,7 @@ export function AddSeedForm({ category }: Props) {
     setResult(null)
     setPending(true)
     try {
-      const res = await addSeedData(category, json)
+      const res = await addSeedData(table, json)
       setResult(res)
       if (res.ok && res.inserted > 0) setJson('')
     } finally {
@@ -31,7 +31,7 @@ export function AddSeedForm({ category }: Props) {
       <textarea
         value={json}
         onChange={(e) => setJson(e.target.value)}
-        placeholder='One object or array, e.g.\n{"name":"Widget","price":9.99,"category":"electronics"}\nor [{"name":"A",...},{"name":"B",...}]'
+        placeholder='One object or array, e.g.\n{"name":"Widget","price":9.99,"table":"electronics"}\nor [{"name":"A",...},{"name":"B",...}]'
         className="min-h-[120px] w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
         required
         disabled={pending}

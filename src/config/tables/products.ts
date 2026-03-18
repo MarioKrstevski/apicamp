@@ -1,4 +1,4 @@
-import { TableConfig } from "@/types/category"
+import { TableConfig } from "@/types/table"
 
 const config: TableConfig = {
   name: "products",

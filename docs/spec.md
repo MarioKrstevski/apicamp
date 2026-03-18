@@ -68,14 +68,12 @@ DELETE /api/cats/:id          — delete own rows only
 
 ## Data Architecture
 
-### Table: `system_rows`
-Stores all pre-seeded data. Never touched by users.
+### Custom Table per API route that we offer
 
 ### Table: `user_rows`
 ```
 id          uuid
 user_id     uuid
-category    text        -- e.g. "cats", "dogs"
 data        jsonb       -- { name: "Whiskers", breed: "Tabby", age: 3 }
 created_at  timestamp
 ```

@@ -24,5 +24,3 @@ export type TableConfig = {
   docs?: Record<string, unknown>
 }
 
-/** @deprecated use TableConfig */
-export type CategoryConfig = TableConfig

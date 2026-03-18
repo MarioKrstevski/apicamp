@@ -11,7 +11,7 @@ tables — all under one API key.
 | Layer | Tool | Notes |
 |-------|------|-------|
 | Framework | Next.js 16 (App Router) | API routes + UI |
-| Database | Supabase Postgres | All data in `user_rows` JSONB table |
+| Database | Supabase Postgres |
 | Auth | Supabase Auth | Email/password — Supabase only, no NextAuth |
 | Storage | Supabase Storage | File uploads (paid feature, future) |
 | Validation | Zod | Config schema + request body validation |
@@ -25,7 +25,7 @@ tables — all under one API key.
 
 ### The config is the source of truth
 
-Every data category (users, products, posts, cats…) is defined by a single
+Every table (users, products, posts, cats…) is defined by a single
 TypeScript config file at `src/config/categories/[name].ts`, validated by a Zod
 schema on import.
 
@@ -35,22 +35,22 @@ That config drives **everything**:
 |---------------|-----------------------------|
 | `scripts/generate-schema.ts` | Outputs base Supabase SQL (run once) |
 | `scripts/generate-seeds.ts` | Outputs INSERT SQL for seed data |
-| `src/app/api/[locale]/[version]/[category]/route.ts` | Enforces versions, filters, ownership, validation at runtime |
-| `src/app/docs/[category]/page.tsx` | Auto-generates the docs page |
+| `src/app/api/[...segments]/route.ts` | Enforces versions, filters, ownership, validation at runtime |
+| `src/app/docs/[table]/page.tsx` | Auto-generates the docs page |
 
-**Adding a new category = one config file + two script runs. Never touch the route handler.**
+**Adding a new table = one config file + script runs. Never touch the route handler.**
 
 ### Data model
 
-All category data lives in one Supabase table:
+Create new tables as needed per API route
+
+
+One unique table is going to be used when users want to create their own "Tables", we just create it all within our own user_rows table as a data field of type jsonb
 
 ```sql
 user_rows (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id     uuid REFERENCES auth.users NOT NULL,
-  category    text NOT NULL,       -- "cats", "users", "products"
-  locale      text NOT NULL,       -- "en", "fr", "es", "sr"
-  is_system   boolean DEFAULT false, -- seeded rows, never deleteable by users
   data        jsonb NOT NULL,      -- { name: "Whiskers", breed: "Tabby", age: 3 }
   created_at  timestamptz DEFAULT now()
 )
@@ -62,15 +62,13 @@ admin account for the requested locale.
 ### API URL structure
 
 ```
-GET    /api/[locale]/[version]/[category]
-GET    /api/[locale]/[version]/[category]/[id]
-POST   /api/[locale]/[version]/[category]
-PUT    /api/[locale]/[version]/[category]/[id]
-DELETE /api/[locale]/[version]/[category]/[id]
+GET    /api/[modifiers]/[resource]
+GET    /api/[modifiers]/[resource]/[id]
+POST   /api/[modifiers]/[resource]
+PUT    /api/[modifiers]/[resource]/[id]
+DELETE /api/[modifiers]/[resource]/[id]
 ```
 
-Supported locales: `en`, `fr`, `es`, `sr`
-Supported versions per category: `v1`, `v2`, `v3` (defined in config)
 
 ### Behavior modifiers
 
@@ -84,6 +82,8 @@ chaos  — 30% chance of random error (500/503/504)
 empty  — always returns empty array
 stale  — returns real data + fake staleness headers
 random — shuffles result order on every request
+v1,v2,v3 - versions
+en,de,sp,sr,mk,fr - locales
 ```
 
 Usage: `GET /api/en/v1/slow2/users`

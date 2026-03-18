@@ -15,7 +15,7 @@ import { createClient } from "@/lib/supabase/server"
 import { getTableConfig } from "@/lib/tables"
 import { validateApiKey, type Account } from "@/lib/auth"
 import { checkRateLimit } from "@/lib/rateLimit"
-import type { TableConfig } from "@/types/category"
+import type { TableConfig } from "@/types/table"
 import { applyVersionShape } from "@/lib/versioning"
 import { validateFields } from "@/lib/validation"
 import { getLocaleAdminId } from "@/lib/locales"
@@ -23,7 +23,7 @@ import { logAudit } from "@/lib/audit"
 
 // ─── SEGMENT PARSER ───────────────────────────────────────────────────────────
 
-const LOCALES   = new Set(["en", "fr", "es", "sr"])
+const LOCALES   = new Set(["en", "fr", "es", "sr", "de", "mk"])
 const VERSIONS  = new Set(["v1", "v2", "v3"])
 const BEHAVIORS = new Set(["slow1", "slow2", "slow3", "chaos", "empty", "stale", "random", "numid", "uuid", "bothid"])
 
@@ -171,7 +171,6 @@ function usersRowToData(row: Record<string, unknown>): Record<string, unknown> {
 
 /**
  * Convert a raw DB row to its API payload.
- * For non-users tables the versioned data lives in the JSONB `data` column;
  * num_id and id are top-level DB columns that we always merge in.
  */
 function rowToPayload(resource: string, row: Record<string, unknown> & { data?: unknown }): Record<string, unknown> {

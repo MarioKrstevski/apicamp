@@ -59,7 +59,9 @@ export default async function UsersDocsPage({ searchParams }: UsersDocsPageProps
         .eq("created_by", localeAdminId)
         .order("created_at", { ascending: false })
         .limit(10)
-      if (!error && rows) sampleRows = rows
+      if (!error && rows && Array.isArray(rows)) {
+        sampleRows = rows as unknown as Record<string, unknown>[]
+      }
     } catch {
       sampleRows = []
     }

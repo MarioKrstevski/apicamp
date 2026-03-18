@@ -45,7 +45,7 @@ export default async function ManageDashboardPage() {
             className="rounded-md border border-border bg-card px-4 py-4"
           >
             <h3 className="text-base font-medium text-foreground mb-3">{name}</h3>
-            <AddSeedForm category={name} />
+            <AddSeedForm table={name} />
           </div>
         ))}
       </section>
