@@ -10,21 +10,17 @@ export type SeedUsersTableResult =
 
 const MAX_PAYLOAD_BYTES = 102400
 
-/** Map camelCase keys from pasted JSON to snake_case DB columns */
+/** camelCase → snake_case */
+function camelToSnake(s: string): string {
+  return s.replace(/[A-Z]/g, l => `_${l.toLowerCase()}`)
+}
+
+/** Convert camelCase body to snake_case DB columns, set ownership. */
 function toRow(obj: Record<string, unknown>, createdBy: string): Record<string, unknown> {
-  const map: Record<string, string> = {
-    firstName: 'first_name',
-    lastName: 'last_name',
-    isActive: 'is_active',
-    socialLinks: 'social_links',
-    birthDate: 'birth_date',
-    createdAt: 'created_at'
-  }
   const row: Record<string, unknown> = { created_by: createdBy }
   for (const [key, value] of Object.entries(obj)) {
     if (key === 'id' || key === 'createdBy' || key === 'created_by') continue
-    const col = map[key] ?? key
-    row[col] = value
+    row[camelToSnake(key)] = value
   }
   return row
 }
@@ -60,6 +56,7 @@ export async function seedUsersTable(json: string): Promise<SeedUsersTableResult
 
   const config = getTableConfig('users')
   const fields = config?.fields ?? {}
+  const knownFields = new Set(Object.keys(fields))
 
   for (let i = 0; i < items.length; i++) {
     const item = items[i]
@@ -74,7 +71,13 @@ export async function seedUsersTable(json: string): Promise<SeedUsersTableResult
       continue
     }
 
-    const row = toRow(item as Record<string, unknown>, user.id)
+    // Only insert fields the table config defines
+    const filtered: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(item as Record<string, unknown>)) {
+      if (knownFields.has(k)) filtered[k] = v
+    }
+
+    const row = toRow(filtered, user.id)
 
     const { data: inserted, error } = await supabase
       .from('users')

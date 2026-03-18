@@ -9,9 +9,9 @@ const config: TableConfig = {
   localeFields: ["name", "description", "category"],
 
   versions: {
-    v1: ["id", "name", "price", "category"],
-    v2: ["id", "name", "price", "category", "stock", "rating", "tags"],
-    v3: ["id", "name", "price", "category", "stock", "rating", "tags", "description", "images", "meta"]
+    v1: ["name", "price", "category"],
+    v2: ["name", "price", "category", "stock", "rating", "tags"],
+    v3: ["name", "price", "category", "stock", "rating", "tags", "description", "images", "meta"]
   },
 
   fields: {
@@ -20,14 +20,14 @@ const config: TableConfig = {
       required: true,
       maxLength: 120,
       searchable: true,
-      translatable: true
+      localizable: true
     },
     description: {
       type: "text",
       required: false,
       maxLength: 2000,
       searchable: true,
-      translatable: true
+      localizable: true
     },
     price: {
       type: "number",
@@ -52,7 +52,7 @@ const config: TableConfig = {
       type: "enum",
       required: true,
       values: ["electronics", "clothing", "food", "books", "sports"],
-      translatable: true
+      localizable: true
     },
     tags: {
       type: "enum_multi",

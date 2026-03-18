@@ -26,7 +26,7 @@ const config: TableConfig = {
       required: true,
       maxLength: 1000,
       searchable: true,
-      translatable: true,
+      localizable: true,
     },
     // Person (or entity) credited with the quote
     author: {
@@ -40,7 +40,7 @@ const config: TableConfig = {
       type: "string",
       required: false,
       maxLength: 200,
-      translatable: true,
+      localizable: true,
     },
     // Broad thematic category for filtering
     category: {

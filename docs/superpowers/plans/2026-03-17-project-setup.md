@@ -4,7 +4,7 @@
 
 **Goal:** Set up project foundations — CLAUDE.md, Supabase + Zod packages, .env.example — so every subsequent task has a clear contract to work from.
 
-**Architecture:** Config-driven API playground built on Next.js App Router + Supabase only (auth, DB, storage). All category data lives in a single `user_rows` JSONB table. A Zod-validated `CategoryConfig` type is the single source of truth for SQL generation, seed data, validation, and docs.
+**Architecture:** Config-driven API playground built on Next.js App Router + Supabase only (auth, DB, storage). All category data lives in a single `user_rows` JSONB table. A Zod-validated `TableConfig` type is the single source of truth for SQL generation, seed data, validation, and docs.
 
 **Tech Stack:** Next.js 16 (App Router), Supabase (Auth + Postgres + Storage), Zod, pnpm, TypeScript strict, Tailwind CSS v4, shadcn/ui
 
@@ -160,7 +160,7 @@ tables — all under one API key.
 ### The config is the source of truth
 
 Every data category (users, products, posts, cats…) is defined by a single
-TypeScript config file in `src/config/categories/[name].ts`. The config is
+TypeScript config file in `src/config/tables/[name].ts`. The config is
 validated by a Zod schema at import time.
 
 That config drives **everything**:
@@ -230,19 +230,19 @@ Supported versions: `v1`, `v2`, `v3` (defined per category in config)
 src/
   app/
     api/
-      [locale]/[version]/[category]/
-        route.ts          ← ONE file handles ALL categories
+      [...segments]/
+        route.ts          ← ONE file handles ALL tables
   config/
-    categories/
-      users.ts            ← CategoryConfig for users
-      products.ts         ← CategoryConfig for products
-      posts.ts            ← CategoryConfig for posts
+    tables/
+      users.ts            ← TableConfig for users
+      products.ts         ← TableConfig for products
+      quotes.ts           ← TableConfig for quotes
     registry.ts           ← exports all configs as a map
   lib/
     supabase/
       server.ts           ← server-side client (service role)
       client.ts           ← browser-side client (anon key)
-    categories.ts         ← getCategoryConfig(name)
+    tables.ts             ← getTableConfig(name)
     auth.ts               ← validateApiKey(key)
     rateLimit.ts          ← checkRateLimit(account)
     versioning.ts         ← applyVersionShape(data, fields)
@@ -251,7 +251,7 @@ src/
     audit.ts              ← logAudit(...)
     modifiers.ts          ← extractModifier / applyModifier
   types/
-    category.ts           ← Zod schema + CategoryConfig type
+    table.ts              ← Zod schema + TableConfig type
   components/
     ui/                   ← shadcn/ui components
 docs/
@@ -285,7 +285,7 @@ pnpm tsx scripts/generate-seeds.ts users   # output seed SQL for a category
 
 ## Adding a New Category
 
-1. Create `src/config/categories/[name].ts` — must satisfy `CategoryConfig` Zod schema
+1. Create `src/config/tables/[name].ts` — must satisfy `TableConfig` Zod schema
 2. Add it to `src/config/registry.ts`
 3. Run `pnpm tsx scripts/generate-seeds.ts [name]` — paste output into Supabase SQL editor
 4. Done — `/api/en/v1/[name]` works automatically
@@ -298,8 +298,8 @@ Use the `/category-generator` Claude Code skill for a guided walkthrough.
 
 | # | Task | Status |
 |---|------|--------|
-| 1 | Define Zod CategoryConfig schema (`src/types/category.ts`) | pending |
-| 2 | Create 3 initial category configs: users, products, posts | pending |
+| 1 | Define Zod TableConfig schema (`src/types/table.ts`) | done |
+| 2 | Create table configs: users, products, quotes, books, students, resumes, animals | done |
 | 3 | Build SQL + seed generator scripts | pending |
 | 4 | Set up Supabase project and run migrations | pending |
 | 5 | Build all lib files needed by the route handler | pending |

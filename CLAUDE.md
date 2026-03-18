@@ -25,8 +25,8 @@ tables — all under one API key.
 
 ### The config is the source of truth
 
-Every table (users, products, posts, cats…) is defined by a single
-TypeScript config file at `src/config/categories/[name].ts`, validated by a Zod
+Every table (users, products, quotes, books…) is defined by a single
+TypeScript config file at `src/config/tables/[name].ts`, validated by a Zod
 schema on import.
 
 That config drives **everything**:
@@ -38,26 +38,31 @@ That config drives **everything**:
 | `src/app/api/[...segments]/route.ts` | Enforces versions, filters, ownership, validation at runtime |
 | `src/app/docs/[table]/page.tsx` | Auto-generates the docs page |
 
-**Adding a new table = one config file + script runs. Never touch the route handler.**
+**Adding a new table = one config file + register it + seed data. Never touch the route handler.**
 
 ### Data model
 
-Create new tables as needed per API route
-
-
-One unique table is going to be used when users want to create their own "Tables", we just create it all within our own user_rows table as a data field of type jsonb
+Each API table has its own Postgres table with flat columns (no JSONB wrapper).
+Every table includes `id UUID`, `num_id BIGSERIAL`, `user_id UUID` (ownership), and `created_at`.
 
 ```sql
-user_rows (
+-- Example: quotes table
+quotes (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  num_id      bigserial UNIQUE,
   user_id     uuid REFERENCES auth.users NOT NULL,
-  data        jsonb NOT NULL,      -- { name: "Whiskers", breed: "Tabby", age: 3 }
+  text        text NOT NULL,
+  author      varchar(120) NOT NULL,
+  category    varchar(50) NOT NULL,
+  source      varchar(200),
+  year        integer,
+  tags        jsonb,
   created_at  timestamptz DEFAULT now()
 )
 ```
 
 Every GET request merges rows owned by the requester + rows owned by the locale
-admin account for the requested locale.
+admin account for the requested locale. RLS ensures users can only modify their own rows.
 
 ### API URL structure
 
@@ -103,42 +108,39 @@ Usage: `GET /api/en/v1/slow2/users`
 src/
   app/
     api/
-      [locale]/[version]/[category]/
-        route.ts          ← one handler for ALL categories
+      [...segments]/
+        route.ts          ← one handler for ALL tables (catch-all segments)
   config/
-    categories/
-      users.ts            ← CategoryConfig
-      products.ts         ← CategoryConfig
-      posts.ts            ← CategoryConfig
-    registry.ts           ← map of all configs, used by getCategoryConfig()
+    tables/
+      users.ts            ← TableConfig
+      products.ts         ← TableConfig
+      quotes.ts           ← TableConfig
+      books.ts            ← TableConfig
+      students.ts         ← TableConfig
+      resumes.ts          ← TableConfig
+      animals.ts          ← TableConfig
+    registry.ts           ← map of all configs, used by getTableConfig()
   lib/
     supabase/
       server.ts           ← server client (service role key)
       client.ts           ← browser client (anon key)
-    categories.ts         ← getCategoryConfig(name)
+    tables.ts             ← getTableConfig(name)
     auth.ts               ← validateApiKey(key) → account | null
     rateLimit.ts          ← checkRateLimit(account) → null | { resetAt }
     versioning.ts         ← applyVersionShape(data, fields) → partial object
     validation.ts         ← validateFields(body, configFields, opts?)
     locales.ts            ← getLocaleAdminId(locale) → uuid
-    audit.ts              ← logAudit(userId, method, category, rowId)
+    audit.ts              ← logAudit(userId, method, table, rowId)
     modifiers.ts          ← extractModifier(searchParams) / applyModifier(mod)
   types/
-    category.ts           ← Zod schema + CategoryConfig inferred type
+    table.ts              ← Zod schema + TableConfig inferred type
   components/
     ui/                   ← shadcn/ui components
 docs/
-  spec.md                 ← full product specification
-  extensions.md           ← future features roadmap
-  examples/               ← reference route examples
+  sql/                    ← SQL scripts (create-tables, seeds)
   superpowers/plans/      ← implementation plans
 scripts/
-  generate-schema.ts      ← outputs base Supabase SQL (run once)
-  generate-seeds.ts       ← outputs seed INSERT SQL for a category
-.claude/
-  commands/
-    category-generator.md ← /category-generator skill
-    add-category.md       ← detailed add-category reference
+  seed-tables.ts          ← seeds all tables via Supabase client
 ```
 
 ---
@@ -150,20 +152,18 @@ pnpm dev                                    # start dev server
 pnpm build                                  # production build
 pnpm lint                                   # eslint
 
-pnpm tsx scripts/generate-schema.ts         # output base Supabase schema SQL
-pnpm tsx scripts/generate-seeds.ts users    # output seed SQL for a category
+pnpm tsx scripts/seed-tables.ts             # seed all tables via Supabase client
 ```
 
 ---
 
-## Adding a New Category
+## Adding a New Table
 
-1. Create `src/config/categories/[name].ts` — must satisfy `CategoryConfig` Zod schema
+1. Create `src/config/tables/[name].ts` — must satisfy `TableConfig` Zod schema
 2. Add it to `src/config/registry.ts`
-3. Run `pnpm tsx scripts/generate-seeds.ts [name]` — paste output into Supabase SQL editor
-4. Done — `/api/en/v1/[name]` works automatically, docs at `/docs/[name]`
-
-Use the `/category-generator` Claude Code skill for a guided walkthrough.
+3. Create the DB table in Supabase (add SQL to `docs/sql/create-tables.sql`)
+4. Add seed data to `scripts/seed-tables.ts` and run it
+5. Done — `/api/en/v1/[name]` works automatically, docs at `/docs/[name]`
 
 ---
 
@@ -171,7 +171,7 @@ Use the `/category-generator` Claude Code skill for a guided walkthrough.
 
 - **Zod first** — define the schema, infer the type with `z.infer<>`. Never write types manually when Zod can derive them.
 - **Config = contract** — if behavior isn't defined in the config, it doesn't exist in the API.
-- **No per-category route files** — the dynamic route at `[category]/route.ts` handles everything. Adding a route file for a specific category is always wrong.
+- **No per-table route files** — the catch-all route at `[...segments]/route.ts` handles everything. Adding a route file for a specific table is always wrong.
 - **Supabase only** — no external auth providers, no Redis, no other backend services. Rate limiting uses DB counters until scale demands otherwise.
 - **pnpm only** — never run `npm install` or `yarn add` in this project.
 - **Service role key = server only** — never import `lib/supabase/server.ts` from a client component or expose the service role key to the browser.
@@ -187,7 +187,7 @@ Required:
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `NEXT_PUBLIC_APP_URL`
-- `LOCALE_ADMIN_EN` / `LOCALE_ADMIN_FR` / `LOCALE_ADMIN_ES` / `LOCALE_ADMIN_SR`
+- `LOCALE_ADMIN_EN` / `LOCALE_ADMIN_FR` / `LOCALE_ADMIN_ES` / `LOCALE_ADMIN_SR` / `LOCALE_ADMIN_DE` / `LOCALE_ADMIN_MK`
 
 ---
 
@@ -195,10 +195,11 @@ Required:
 
 | # | Task | Status |
 |---|------|--------|
-| 1 | Define Zod CategoryConfig schema (`src/types/category.ts`) | pending |
-| 2 | Create 3 initial category configs: users, products, posts | pending |
-| 3 | Build SQL + seed generator scripts | pending |
-| 4 | Set up Supabase project and run migrations | pending |
-| 5 | Build all lib files needed by the route handler | pending |
-| 6 | Wire up and smoke-test the dynamic API route | pending |
-| 7 | Build docs generator from config | pending |
+| 1 | Define Zod `TableConfig` schema (`src/types/table.ts`) | done |
+| 2 | Create table configs: users, products, quotes, books, students, resumes, animals | done |
+| 3 | Build SQL schema + seed script | done |
+| 4 | Set up Supabase project and run migrations | done |
+| 5 | Build all lib files needed by the route handler | done |
+| 6 | Wire up catch-all API route (`[...segments]/route.ts`) | done |
+| 7 | Build manage-dashboard pages per table | done |
+| 8 | Build docs pages from config | pending |

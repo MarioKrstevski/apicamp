@@ -168,9 +168,9 @@ File: `src/config/registry.ts` — created as part of this implementation
 
 Shape:
 ```ts
-import type { CategoryConfig } from "@/types/category"
+import type { TableConfig } from "@/types/table"
 
-const registry: Record<string, CategoryConfig> = {
+const registry: Record<string, TableConfig> = {
   users: usersConfig,
   products: productsConfig,
 }
@@ -180,7 +180,7 @@ export default registry
 
 `/manage-dashboard` reads `Object.keys(registry)` to render the category list. This is a build-time static import — no DB or API call.
 
-**Note:** `users.ts` imports from `@/lib/types` while `products.ts` imports from `@/types/category` — these must be reconciled to a single path. The canonical location is `@/types/category` (matches CLAUDE.md). Update `users.ts` import to match.
+**Note:** `users.ts` imports from `@/lib/types` while `products.ts` imports from `@/types/table` — these must be reconciled to a single path. The canonical location is `@/types/table` (matches CLAUDE.md). Update `users.ts` import to match.
 
 ---
 
@@ -215,6 +215,6 @@ export default registry
 | `src/app/auth/signout/route.ts` | Create |
 | `src/app/(main)/dashboard/page.tsx` | Create |
 | `src/app/(main)/manage-dashboard/page.tsx` | Create |
-| `src/config/categories/users.ts` | Update — fix import path to `@/types/category` |
+| `src/config/tables/users.ts` | Update — fix import path to `@/types/table` |
 | `.env.example` | Update — replace old anon key name |
 | `CLAUDE.md` | Update — fix env var name |

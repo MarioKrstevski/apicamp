@@ -401,7 +401,12 @@ export async function POST(
     }
   }
 
-  if (config.fields.createdAt?.auto) body.createdAt = new Date().toISOString()
+  // Strip auto fields — clients cannot override them
+  for (const [fname, fdef] of Object.entries(config.fields)) {
+    if ((fdef as Record<string, unknown>).auto) {
+      delete body[fname]
+    }
+  }
 
   const insertPayload: Record<string, unknown> = {
     [col]: account.id,
@@ -464,7 +469,7 @@ export async function PUT(
 
   const updatePayload = bodyToRow(body)
   const { data, error } = await supabase
-    .from(resource!).update(updatePayload).eq("id", existing.id).select().single()
+    .from(resource!).update(updatePayload).eq(idCol(id), id).eq(col, account.id).select().single()
   if (error) return NextResponse.json({ error: "Update failed", detail: error.message }, { status: 500 })
 
   await logAudit(account.id, "PUT", resource!, existing.id)
@@ -509,7 +514,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Not found or not yours" }, { status: 404 })
   }
 
-  const { error } = await supabase.from(resource!).delete().eq("id", existing.id)
+  const { error } = await supabase.from(resource!).delete().eq(idCol(id), id).eq(col, account.id)
   if (error) return NextResponse.json({ error: "Delete failed", detail: error.message }, { status: 500 })
 
   await logAudit(account.id, "DELETE", resource!, existing.id)

@@ -1,10 +1,10 @@
 import { TableConfig } from "@/types/table"
 
 // Wildlife / animal catalog — a read-friendly dataset great for learning
-// filtering, sorting, and pagination without needing locale-specific content.
+// filtering, sorting, and pagination.
 //
-// locale: false — every locale shares the same catalog. There is no per-locale
-// admin seed; system rows are inserted once and are visible to all users.
+// locale: true — each locale admin seeds regionally relevant animals.
+// Scientific names, numbers, and taxonomy are universal values.
 const config: TableConfig = {
   name: "animals",
   label: "Animals",

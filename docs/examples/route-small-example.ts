@@ -1,35 +1,52 @@
-// app/api/[locale]/[version]/[category]/route.ts
+// app/api/[...segments]/route.ts
 // SMALL EXAMPLE — simplified to show the core concept clearly
 
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { getCategoryConfig } from "@/lib/categories"
-import { validateApiKey, getRateLimitTier } from "@/lib/auth"
-import { applyVersionShape } from "@/lib/versioning"
+import { getTableConfig } from "@/lib/tables"
+import { validateApiKey } from "@/lib/auth"
 
-type Params = {
-  locale: string      // "en" | "fr" | "es" | "sr"
-  version: string     // "v1" | "v2" | "v3"
-  category: string    // "cats" | "dogs" | "products" etc.
+// URL: /api/[locale]/[version]/[modifiers...]/[resource]
+// Segments are parsed from the catch-all [...segments] param
+
+function camelToSnake(s: string): string {
+  return s.replace(/[A-Z]/g, l => `_${l.toLowerCase()}`)
 }
 
-// ─── GET /api/[locale]/[version]/[category] ───────────────────────────────
+function snakeToCamel(s: string): string {
+  return s.replace(/_([a-z])/g, (_, l) => l.toUpperCase())
+}
 
-export async function GET(req: NextRequest, { params }: { params: Params }) {
-  const { locale, version, category } = params
+function rowToPayload(row: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(row)) {
+    if (k === "user_id") continue
+    out[snakeToCamel(k)] = v
+  }
+  return out
+}
+
+// ─── GET /api/en/v1/quotes ──────────────────────────────────────────────────
+
+export async function GET(req: NextRequest, { params }: { params: Promise<{ segments: string[] }> }) {
+  const { segments } = await params
+  // Parse segments: locale, version, modifiers, resource
+  const locale = segments[0]   // "en"
+  const version = segments[1]  // "v1"
+  const resource = segments[segments.length - 1] // "quotes"
 
   // 1. Validate API key
   const apiKey = req.headers.get("x-api-key")
   const account = await validateApiKey(apiKey)
   if (!account) return NextResponse.json({ error: "Invalid API key" }, { status: 401 })
 
-  // 2. Load category config
-  const config = getCategoryConfig(category)
-  if (!config) return NextResponse.json({ error: "Unknown category" }, { status: 404 })
+  // 2. Load table config
+  const config = getTableConfig(resource)
+  if (!config) return NextResponse.json({ error: "Unknown resource" }, { status: 404 })
 
   // 3. Check version exists
   if (!config.versions[version]) {
-    return NextResponse.json({ error: `Version ${version} not available for ${category}` }, { status: 404 })
+    return NextResponse.json({ error: `Version ${version} not available` }, { status: 404 })
   }
 
   // 4. Parse query params
@@ -39,37 +56,31 @@ export async function GET(req: NextRequest, { params }: { params: Params }) {
   const sort = searchParams.get("sort") ?? "created_at"
   const order = searchParams.get("order") === "desc" ? "desc" : "asc"
   const search = searchParams.get("search") ?? ""
-  const mineOnly = searchParams.get("mine_only") === "true"
 
-  // 5. Build query
-  const supabase = createClient()
+  // 5. Build query — flat columns, not JSONB
+  const supabase = await createClient()
   let query = supabase
-    .from("user_rows")
+    .from(resource)          // each table has its own DB table
     .select("*", { count: "exact" })
-    .eq("category", category)
 
-  // Locale filter — pull system rows for this locale + user's own rows
+  // Locale filter — pull locale admin rows + user's own rows
   if (config.locale) {
-    const localeAdminId = await getLocaleAdminId(locale)
-    if (mineOnly) {
-      query = query.eq("user_id", account.id)
-    } else {
-      query = query.or(`user_id.eq.${account.id},user_id.eq.${localeAdminId}`)
-    }
+    const localeAdminId = process.env[`LOCALE_ADMIN_${locale.toUpperCase()}`]
+    query = query.or(`user_id.eq.${account.id},user_id.eq.${localeAdminId}`)
   }
 
-  // Search
+  // Search — uses flat column names
   if (search && config.searchable.length > 0) {
-    const searchConditions = config.searchable
-      .map(field => `data->>'${field}'.ilike.%${search}%`)
+    const conditions = config.searchable
+      .map(field => `${camelToSnake(field)}.ilike.%${search}%`)
       .join(",")
-    query = query.or(searchConditions)
+    query = query.or(conditions)
   }
 
   // Pagination + sort
   const from = (page - 1) * limit
   query = query
-    .order(`data->>'${sort}'`, { ascending: order === "asc" })
+    .order(camelToSnake(sort), { ascending: order === "asc" })
     .range(from, from + limit - 1)
 
   const { data, count, error } = await query
@@ -77,61 +88,18 @@ export async function GET(req: NextRequest, { params }: { params: Params }) {
 
   // 6. Apply version shape — only return fields for this version
   const versionFields = config.versions[version]
-  const shaped = data.map(row => applyVersionShape(row.data, versionFields))
+  const shaped = (data ?? []).map(row => {
+    const payload = rowToPayload(row as Record<string, unknown>)
+    const out: Record<string, unknown> = { id: payload.id }
+    for (const field of versionFields) {
+      if (field in payload) out[field] = payload[field]
+    }
+    return out
+  })
 
   // 7. Return
   return NextResponse.json({
     data: shaped,
-    meta: {
-      total: count,
-      page,
-      limit,
-      totalPages: Math.ceil((count ?? 0) / limit)
-    }
+    meta: { total: count, page, limit, totalPages: Math.ceil((count ?? 0) / limit) }
   })
-}
-
-// ─── POST /api/[locale]/[version]/[category] ─────────────────────────────
-
-export async function POST(req: NextRequest, { params }: { params: Params }) {
-  const { locale, version, category } = params
-
-  const apiKey = req.headers.get("x-api-key")
-  const account = await validateApiKey(apiKey)
-  if (!account) return NextResponse.json({ error: "Invalid API key" }, { status: 401 })
-  if (account.tier === "free") return NextResponse.json({ error: "Paid plan required" }, { status: 403 })
-
-  const config = getCategoryConfig(category)
-  if (!config) return NextResponse.json({ error: "Unknown category" }, { status: 404 })
-
-  const body = await req.json()
-
-  // Validate against config fields
-  const validation = validateFields(body, config.fields)
-  if (!validation.valid) {
-    return NextResponse.json({ error: "Validation failed", details: validation.errors }, { status: 400 })
-  }
-
-  // Check row limit
-  const supabase = createClient()
-  const { count } = await supabase
-    .from("user_rows")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", account.id)
-    .eq("category", category)
-
-  if ((count ?? 0) >= config.maxUserRows) {
-    return NextResponse.json({ error: `Max ${config.maxUserRows} rows per category` }, { status: 429 })
-  }
-
-  const { data, error } = await supabase
-    .from("user_rows")
-    .insert({ user_id: account.id, category, data: body })
-    .select()
-    .single()
-
-  if (error) return NextResponse.json({ error: "Insert failed" }, { status: 500 })
-
-  const versionFields = config.versions[version]
-  return NextResponse.json(applyVersionShape(data.data, versionFields), { status: 201 })
 }

@@ -1,4 +1,4 @@
-// Stub — pending implementation (see CLAUDE.md task list)
-export async function logAudit(_userId: string, _method: string, _category: string, _rowId: string) {
-  throw new Error("logAudit not implemented yet");
+// Stub — logs to console until a proper audit table is set up.
+export async function logAudit(userId: string, method: string, table: string, rowId: string) {
+  console.info(`[audit] ${method} ${table}/${rowId} by ${userId}`)
 }

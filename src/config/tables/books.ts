@@ -40,7 +40,7 @@ const config: TableConfig = {
       required: true,
       maxLength: 300,
       searchable: true,
-      translatable: true,
+      localizable: true,
     },
     // Primary author (or "Various" for anthologies)
     author: {
@@ -72,7 +72,7 @@ const config: TableConfig = {
         "thriller",
         "philosophy",
       ],
-      translatable: true,
+      localizable: true,
     },
     // Year of first publication
     year: {
@@ -103,7 +103,7 @@ const config: TableConfig = {
       required: false,
       maxLength: 3000,
       searchable: true,
-      translatable: true,
+      localizable: true,
     },
     // Original language of the book (ISO 639-1 code or plain name)
     language: {
