@@ -1,6 +1,2 @@
-import registry from "@/config/registry"
-import type { CategoryConfig } from "@/types/category"
-
-export function getCategoryConfig(category: string): CategoryConfig | null {
-  return registry[category] ?? null
-}
+// Re-exports for backwards compatibility — prefer importing from lib/tables directly.
+export { getTableConfig as getCategoryConfig } from "@/lib/tables"

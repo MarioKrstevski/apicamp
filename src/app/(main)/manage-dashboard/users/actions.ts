@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { getCategoryConfig } from '@/lib/categories'
+import { getTableConfig } from '@/lib/tables'
 import { validateFields } from '@/lib/validation'
 
 export type SeedUsersTableResult =
@@ -58,7 +58,7 @@ export async function seedUsersTable(json: string): Promise<SeedUsersTableResult
   const insertedIds: string[] = []
   const errors: string[] = []
 
-  const config = getCategoryConfig('users')
+  const config = getTableConfig('users')
   const fields = config?.fields ?? {}
 
   for (let i = 0; i < items.length; i++) {

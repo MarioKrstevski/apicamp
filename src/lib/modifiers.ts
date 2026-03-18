@@ -1,7 +1,7 @@
-// Stub — pending implementation (see CLAUDE.md task list)
 export function extractModifier(_searchParams: unknown): string | null {
-  throw new Error("extractModifier not implemented yet");
+  return null
 }
-export async function applyModifier(_modifier: string | null) {
-  throw new Error("applyModifier not implemented yet");
+
+export async function applyModifier(_modifier: string | null): Promise<void> {
+  // no-op for now (slow1/slow2/slow3 could add delay here)
 }

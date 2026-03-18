@@ -1,17 +1,8 @@
-/**
- * Platform tables: real DB tables (products, users) that we create and seed.
- * Served by the API; paid customers use these as demo endpoints.
- * Other categories (future, or user-created) live in user_rows with a category column.
- */
-const PLATFORM_TABLES = ['products', 'users'] as const
+// Every API resource maps directly to a DB table of the same name.
+// "user_rows" is the only exception — it's a special table for user-created
+// custom resources (flexible JSONB schema, discriminated by a category column).
+// All other resources (users, cats, products…) have their own dedicated tables.
 
-export type TableForCategoryResult =
-  | { table: typeof PLATFORM_TABLES[number]; isPlatformTable: true }
-  | { table: 'user_rows'; isPlatformTable: false }
-
-export function getTableForCategory(category: string): TableForCategoryResult {
-  if (PLATFORM_TABLES.includes(category as typeof PLATFORM_TABLES[number])) {
-    return { table: category as typeof PLATFORM_TABLES[number], isPlatformTable: true }
-  }
-  return { table: 'user_rows', isPlatformTable: false }
+export function getTable(resource: string): string {
+  return resource
 }

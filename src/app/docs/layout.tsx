@@ -1,11 +1,13 @@
 import Link from "next/link"
+import { Suspense } from "react"
 import { Navbar } from "@/components/navbar"
+import { DocsLocalePicker } from "@/components/docs-locale-picker"
 
 const categories = [
   { slug: "cats", label: "Cats" },
   { slug: "movies", label: "Movies" },
+  { slug: "users", label: "Users" },
   // Add more categories here as you build them out
-  // { slug: "users", label: "Users" },
   // { slug: "products", label: "Products" },
   // { slug: "posts", label: "Posts" },
 ]
@@ -36,7 +38,14 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
           </aside>
 
           {/* Main content */}
-          <main className="min-w-0 flex-1">{children}</main>
+          <main className="min-w-0 flex-1">
+            <div className="mb-6 flex items-center justify-end">
+              <Suspense fallback={null}>
+                <DocsLocalePicker />
+              </Suspense>
+            </div>
+            {children}
+          </main>
         </div>
       </div>
 

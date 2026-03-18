@@ -2,8 +2,8 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { isLocaleAdmin } from '@/lib/locale-admin'
-import { getCategoryConfig } from '@/lib/categories'
-import { getTableForCategory } from '@/lib/table-for-category'
+import { getTableConfig } from '@/lib/tables'
+import { getTable } from '@/lib/table-for-category'
 import { validateFields } from '@/lib/validation'
 
 export type AddSeedDataResult =
@@ -28,9 +28,9 @@ export async function addSeedData(category: string, json: string): Promise<AddSe
   }
 
   const locale = localeSuffix.toLowerCase()
-  const config = getCategoryConfig(category)
+  const config = getTableConfig(category)
   if (!config) {
-    return { ok: false, error: `Unknown category: ${category}` }
+    return { ok: false, error: `Unknown resource: ${category}` }
   }
 
   if (json.length > MAX_PAYLOAD_BYTES) {
@@ -73,14 +73,14 @@ export async function addSeedData(category: string, json: string): Promise<AddSe
       data.createdAt = new Date().toISOString()
     }
 
-    const { table, isPlatformTable } = getTableForCategory(category)
+    const table = getTable(category)
+    const col   = config.ownershipCol ?? 'user_id'
     const insertPayload: Record<string, unknown> = {
-      user_id: user.id,
-      locale: config.locale ? locale : 'en',
+      [col]:     user.id,
+      locale:    config.locale ? locale : 'en',
       is_system: true,
-      data
+      data,
     }
-    if (!isPlatformTable) insertPayload.category = category
 
     const { data: row, error } = await supabase
       .from(table)

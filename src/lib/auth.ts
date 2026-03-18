@@ -7,6 +7,15 @@ export type Account = {
   locale?: string
 }
 
+/**
+ * Temporary stub: treat missing/any API key as a public free account.
+ * Uses a valid UUID so queries against uuid columns succeed.
+ */
 export async function validateApiKey(_key: string | null): Promise<Account | null> {
-  throw new Error("validateApiKey not implemented yet")
+  return {
+    id: "00000000-0000-0000-0000-000000000000",
+    tier: "free",
+    role: "user",
+    locale: "en"
+  }
 }

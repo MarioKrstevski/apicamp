@@ -1,8 +1,8 @@
-import type { CategoryConfig } from "@/types/category";
-import usersConfig from "./categories/users";
-import productsConfig from "./categories/products";
+import type { TableConfig } from "@/types/category";
+import usersConfig from "./tables/users";
+import productsConfig from "./tables/products";
 
-const registry: Record<string, CategoryConfig> = {
+const registry: Record<string, TableConfig> = {
   users: usersConfig,
   products: productsConfig,
 };
