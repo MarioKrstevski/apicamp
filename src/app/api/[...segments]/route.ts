@@ -137,6 +137,38 @@ function setStaleHeaders(res: NextResponse, behaviors: string[]): void {
 
 // ─── SHARED HELPERS ───────────────────────────────────────────────────────────
 
+/** camelCase → snake_case  (e.g. "firstName" → "first_name") */
+function camelToSnake(s: string): string {
+  return s.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`)
+}
+
+/** snake_case → camelCase  (e.g. "first_name" → "firstName") */
+function snakeToCamel(s: string): string {
+  return s.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase())
+}
+
+/** Ownership columns and other internal cols to strip from API responses. */
+const INTERNAL_COLS = new Set(["user_id", "created_by"])
+
+/** Convert a DB row (snake_case cols) to an API payload (camelCase keys). */
+function rowToPayload(row: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(row)) {
+    if (INTERNAL_COLS.has(k)) continue
+    out[snakeToCamel(k)] = v
+  }
+  return out
+}
+
+/** Convert a camelCase request body to snake_case DB columns for insert/update. */
+function bodyToRow(body: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(body)) {
+    out[camelToSnake(k)] = v
+  }
+  return out
+}
+
 /** True when the id segment is all digits — routes to num_id column instead of UUID id. */
 function isNumericId(id: string): boolean {
   return /^\d+$/.test(id)
@@ -145,37 +177,6 @@ function isNumericId(id: string): boolean {
 /** Column to query by, based on the id format. */
 function idCol(id: string): "num_id" | "id" {
   return isNumericId(id) ? "num_id" : "id"
-}
-
-/** The users table has flat columns; every other table stores payload in a data JSONB column. */
-function usersRowToData(row: Record<string, unknown>): Record<string, unknown> {
-  return {
-    num_id:      row.num_id,
-    id:          row.id,
-    name:        row.name,
-    firstName:   row.first_name,
-    lastName:    row.last_name,
-    email:       row.email,
-    age:         row.age,
-    avatar:      row.avatar,
-    phone:       row.phone,
-    isActive:    row.is_active,
-    role:        row.role,
-    address:     row.address,
-    tags:        row.tags,
-    socialLinks: row.social_links,
-    birthDate:   row.birth_date,
-    createdAt:   row.created_at,
-  }
-}
-
-/**
- * Convert a raw DB row to its API payload.
- * num_id and id are top-level DB columns that we always merge in.
- */
-function rowToPayload(resource: string, row: Record<string, unknown> & { data?: unknown }): Record<string, unknown> {
-  if (resource === "users") return usersRowToData(row)
-  return { num_id: row.num_id, id: row.id, ...(row.data as Record<string, unknown> ?? {}) }
 }
 
 /**
@@ -194,20 +195,21 @@ function shape(
   const versioned = applyVersionShape(payload, fields)
   // Strip any id fields the version config may have included — we own them.
   delete versioned.id
+  delete versioned.numId
   delete versioned.num_id
 
   if (behaviors.includes("uuid")) {
     return { id: payload.id, ...versioned }
   }
   if (behaviors.includes("bothid")) {
-    return { num_id: payload.num_id, id: payload.id, ...versioned }
+    return { numId: payload.numId, id: payload.id, ...versioned }
   }
   // Default and /numid/ — numeric id presented as "id"
-  return { id: payload.num_id, ...versioned }
+  return { id: payload.numId, ...versioned }
 }
 
 /** Ownership column: declared in table config, falls back to "user_id". */
-function ownershipCol(config: TableConfig): string {
+function ownerCol(config: TableConfig): string {
   return config.ownershipCol ?? "user_id"
 }
 
@@ -218,7 +220,7 @@ async function getOwnedRow(
   locale: string,
   config: TableConfig,
 ) {
-  const col      = ownershipCol(config)
+  const col      = ownerCol(config)
   const adminId  = config.locale ? getLocaleAdminId(locale) : getLocaleAdminId("en")
   const supabase = await createClient()
 
@@ -246,7 +248,7 @@ export async function GET(
   if ("error" in boot) return boot.error
   const { account, config } = boot
 
-  const col = ownershipCol(config)
+  const col = ownerCol(config)
 
   // ── Single resource ──────────────────────────────────────────────────────
   if (id) {
@@ -260,7 +262,7 @@ export async function GET(
     const row = await getOwnedRow(resource!, id, account.id, locale, config)
     if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-    const res = NextResponse.json(shape(rowToPayload(resource!, row), config.versions[version], behaviors))
+    const res = NextResponse.json(shape(rowToPayload(row), config.versions[version], behaviors))
     setStaleHeaders(res, behaviors)
     await applyDelay(behaviors)
     return res
@@ -279,8 +281,8 @@ export async function GET(
   const limit = Math.min(Math.max(1, parseInt(searchParams.get("limit") ?? "10")), 100)
   const from  = (page - 1) * limit
 
-  const sortParam = searchParams.get("sort") ?? "created_at"
-  const sort  = config.sortable?.includes(sortParam) ? sortParam : "created_at"
+  const sortParam = searchParams.get("sort") ?? "createdAt"
+  const sort  = config.sortable?.includes(sortParam) ? sortParam : "createdAt"
   const order = searchParams.get("order") === "desc" ? false : true
 
   const search   = searchParams.get("search")?.trim() ?? ""
@@ -291,8 +293,6 @@ export async function GET(
     const val = searchParams.get(field)
     if (val) filters[field] = val
   })
-
-  const isUsersTable = resource === "users"
 
   const supabase = await createClient()
   let query = supabase.from(resource!).select("*", { count: "exact" })
@@ -316,40 +316,27 @@ export async function GET(
     }
   }
 
-  // Search
+  // Search — all tables use flat columns now
   const searchable = Array.isArray(config.searchable) ? config.searchable : []
   if (search && searchable.length > 0) {
-    if (isUsersTable) {
-      const cols = ["name", "first_name", "last_name", "email"]
-      query = query.or(cols.map(c => `${c}.ilike.%${search}%`).join(","))
-    } else {
-      query = query.or(searchable.map((f: string) => `data->>'${f}'.ilike.%${search}%`).join(","))
-    }
+    const cols = searchable.map(f => camelToSnake(f))
+    query = query.or(cols.map(c => `${c}.ilike.%${search}%`).join(","))
   }
 
   // Filters
-  if (isUsersTable) {
-    const colMap: Record<string, string> = { role: "role", isActive: "is_active", age: "age" }
-    Object.entries(filters).forEach(([field, value]) => {
-      query = query.eq(colMap[field] ?? field, value)
-    })
-  } else {
-    Object.entries(filters).forEach(([field, value]) => {
-      query = query.eq(`data->>'${field}'`, value)
-    })
-  }
+  Object.entries(filters).forEach(([field, value]) => {
+    query = query.eq(camelToSnake(field), value)
+  })
 
   // Sort + paginate
-  const sortCol = isUsersTable
-    ? (sort === "createdAt" ? "created_at" : sort)
-    : `data->>'${sort}'`
+  const sortCol = camelToSnake(sort)
   query = query.order(sortCol, { ascending: order }).range(from, from + limit - 1)
 
   const { data, count, error } = await query
   if (error) return NextResponse.json({ error: "Query failed", detail: error.message }, { status: 500 })
 
-  let shaped = (data ?? []).map((row: Record<string, unknown> & { data?: unknown }) =>
-    shape(rowToPayload(resource!, row), config.versions[version], behaviors)
+  let shaped = (data ?? []).map((row: Record<string, unknown>) =>
+    shape(rowToPayload(row), config.versions[version], behaviors)
   )
 
   if (behaviors.includes("random")) shaped = shaped.sort(() => Math.random() - 0.5)
@@ -371,7 +358,7 @@ export async function POST(
 ) {
   const { segments } = await _params
   const parsed = parseSegments(segments)
-  const { locale, version, behaviors, resource } = parsed
+  const { version, behaviors, resource } = parsed
 
   const boot = await bootstrap(req, parsed)
   if ("error" in boot) return boot.error
@@ -381,7 +368,7 @@ export async function POST(
     return NextResponse.json({ error: "Writing data requires a paid account" }, { status: 403 })
   }
 
-  if (account.role === "locale_admin" && account.locale !== locale) {
+  if (account.role === "locale_admin" && account.locale !== parsed.locale) {
     return NextResponse.json({ error: "You can only write to your own locale" }, { status: 403 })
   }
 
@@ -398,7 +385,7 @@ export async function POST(
     return NextResponse.json({ error: "Validation failed", details: validation.errors }, { status: 422 })
   }
 
-  const col      = ownershipCol(config)
+  const col      = ownerCol(config)
   const supabase = await createClient()
 
   if (account.role !== "locale_admin" && account.role !== "superadmin") {
@@ -417,17 +404,15 @@ export async function POST(
   if (config.fields.createdAt?.auto) body.createdAt = new Date().toISOString()
 
   const insertPayload: Record<string, unknown> = {
-    [col]:     account.id,
-    locale:    config.locale ? locale : "en",
-    is_system: account.role === "locale_admin" || account.role === "superadmin",
-    data:      body,
+    [col]: account.id,
+    ...bodyToRow(body),
   }
 
   const { data, error } = await supabase.from(resource!).insert(insertPayload).select().single()
   if (error) return NextResponse.json({ error: "Insert failed", detail: error.message }, { status: 500 })
 
   await logAudit(account.id, "POST", resource!, data.id)
-  return NextResponse.json(shape(rowToPayload(resource!, data), config.versions[version], behaviors), { status: 201 })
+  return NextResponse.json(shape(rowToPayload(data), config.versions[version], behaviors), { status: 201 })
 }
 
 // ─── PUT ──────────────────────────────────────────────────────────────────────
@@ -450,7 +435,7 @@ export async function PUT(
     return NextResponse.json({ error: "Writing data requires a paid account" }, { status: 403 })
   }
 
-  const col      = ownershipCol(config)
+  const col      = ownerCol(config)
   const supabase = await createClient()
 
   const { data: existing, error: fetchError } = await supabase
@@ -462,9 +447,6 @@ export async function PUT(
 
   if (fetchError || !existing) {
     return NextResponse.json({ error: "Not found or not yours" }, { status: 404 })
-  }
-  if (existing.is_system && account.role === "user") {
-    return NextResponse.json({ error: "Cannot modify system rows" }, { status: 403 })
   }
 
   let body: Record<string, unknown>
@@ -480,13 +462,13 @@ export async function PUT(
     return NextResponse.json({ error: "Validation failed", details: validation.errors }, { status: 422 })
   }
 
-  const merged = { ...existing.data, ...body }
+  const updatePayload = bodyToRow(body)
   const { data, error } = await supabase
-    .from(resource!).update({ data: merged }).eq("id", existing.id).select().single()
+    .from(resource!).update(updatePayload).eq("id", existing.id).select().single()
   if (error) return NextResponse.json({ error: "Update failed", detail: error.message }, { status: 500 })
 
   await logAudit(account.id, "PUT", resource!, existing.id)
-  return NextResponse.json(shape(rowToPayload(resource!, data), config.versions[version], behaviors))
+  return NextResponse.json(shape(rowToPayload(data), config.versions[version], behaviors))
 }
 
 // ─── DELETE ───────────────────────────────────────────────────────────────────
@@ -512,9 +494,10 @@ export async function DELETE(
     return NextResponse.json({ error: "Locale admins cannot delete rows" }, { status: 403 })
   }
 
-  const col      = ownershipCol(config)
+  const col      = ownerCol(config)
   const supabase = await createClient()
 
+  // Only matches rows owned by the current user — seed rows (owned by locale admin) are untouchable
   const { data: existing, error: fetchError } = await supabase
     .from(resource!)
     .select("*")
@@ -524,9 +507,6 @@ export async function DELETE(
 
   if (fetchError || !existing) {
     return NextResponse.json({ error: "Not found or not yours" }, { status: 404 })
-  }
-  if (existing.is_system) {
-    return NextResponse.json({ error: "System rows cannot be deleted" }, { status: 403 })
   }
 
   const { error } = await supabase.from(resource!).delete().eq("id", existing.id)

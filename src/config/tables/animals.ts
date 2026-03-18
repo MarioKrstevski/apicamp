@@ -12,8 +12,9 @@ const config: TableConfig = {
     "A wildlife catalog spanning mammals, birds, reptiles, and more — " +
     "with conservation status, habitat, diet, and fun facts",
 
-  // Shared across all locales — taxonomy and biology don't change by language
-  locale: false,
+  // Locale-aware — each locale admin seeds regionally relevant animals.
+  // Scientific names, numbers, and taxonomy are shared values that work across locales.
+  locale: true,
 
   // v1: the bare minimum needed to identify and classify an animal
   // v2: rich metadata — conservation, lifespan, nocturnal behaviour, fun fact

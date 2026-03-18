@@ -32,8 +32,22 @@ const localeAdmins: Record<string, string | undefined> = {
   mk: process.env.LOCALE_ADMIN_MK,
 }
 
+/** camelCase → snake_case  (e.g. "firstName" → "first_name") */
+function camelToSnake(s: string): string {
+  return s.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`)
+}
+
+/** Convert a camelCase object to snake_case keys for DB insertion. */
+function toDbRow(obj: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(obj)) {
+    out[camelToSnake(k)] = v
+  }
+  return out
+}
+
 async function seedTable(table: string, locale: string, adminId: string, rows: object[]) {
-  const payload = rows.map(data => ({ user_id: adminId, locale, is_system: true, data }))
+  const payload = rows.map(row => ({ user_id: adminId, ...toDbRow(row as Record<string, unknown>) }))
   const { error } = await supabase.from(table).insert(payload)
   if (error) console.error(`  ✗ ${table}/${locale}:`, error.message)
   else       console.log(`  ✓ ${table}/${locale}: ${rows.length} rows`)

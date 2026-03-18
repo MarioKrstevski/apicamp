@@ -1,7 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { addSeedData, type AddSeedDataResult } from './actions'
+import { seedTableRows, type SeedResult as AddSeedDataResult } from './actions'
+
+function addSeedData(table: string, json: string): Promise<AddSeedDataResult> {
+  return seedTableRows(table, json)
+}
 import { Button } from '@/components/ui/button'
 
 type Props = {
