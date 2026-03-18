@@ -25,7 +25,7 @@ import { logAudit } from "@/lib/audit"
 
 const LOCALES   = new Set(["en", "fr", "es", "sr"])
 const VERSIONS  = new Set(["v1", "v2", "v3"])
-const BEHAVIORS = new Set(["slow1", "slow2", "slow3", "chaos", "empty", "stale", "random"])
+const BEHAVIORS = new Set(["slow1", "slow2", "slow3", "chaos", "empty", "stale", "random", "numid", "uuid", "bothid"])
 
 type ParsedSegments = {
   locale: string
@@ -137,9 +137,20 @@ function setStaleHeaders(res: NextResponse, behaviors: string[]): void {
 
 // ─── SHARED HELPERS ───────────────────────────────────────────────────────────
 
+/** True when the id segment is all digits — routes to num_id column instead of UUID id. */
+function isNumericId(id: string): boolean {
+  return /^\d+$/.test(id)
+}
+
+/** Column to query by, based on the id format. */
+function idCol(id: string): "num_id" | "id" {
+  return isNumericId(id) ? "num_id" : "id"
+}
+
 /** The users table has flat columns; every other table stores payload in a data JSONB column. */
 function usersRowToData(row: Record<string, unknown>): Record<string, unknown> {
   return {
+    num_id:      row.num_id,
     id:          row.id,
     name:        row.name,
     firstName:   row.first_name,
@@ -158,9 +169,42 @@ function usersRowToData(row: Record<string, unknown>): Record<string, unknown> {
   }
 }
 
-function rowToPayload(resource: string, row: Record<string, unknown> & { data?: unknown }): unknown {
+/**
+ * Convert a raw DB row to its API payload.
+ * For non-users tables the versioned data lives in the JSONB `data` column;
+ * num_id and id are top-level DB columns that we always merge in.
+ */
+function rowToPayload(resource: string, row: Record<string, unknown> & { data?: unknown }): Record<string, unknown> {
   if (resource === "users") return usersRowToData(row)
-  return row.data
+  return { num_id: row.num_id, id: row.id, ...(row.data as Record<string, unknown> ?? {}) }
+}
+
+/**
+ * Apply version shape, then inject the correct id fields based on the active
+ * id modifier. The modifier controls the response — not the DB lookup.
+ *
+ *   default / numid → { id: <num_id>, ...fields }      beginner-friendly
+ *   uuid            → { id: <uuid>,   ...fields }      production-realistic
+ *   bothid          → { num_id, id: <uuid>, ...fields } educational
+ */
+function shape(
+  payload: Record<string, unknown>,
+  fields: unknown,
+  behaviors: string[],
+): Record<string, unknown> {
+  const versioned = applyVersionShape(payload, fields)
+  // Strip any id fields the version config may have included — we own them.
+  delete versioned.id
+  delete versioned.num_id
+
+  if (behaviors.includes("uuid")) {
+    return { id: payload.id, ...versioned }
+  }
+  if (behaviors.includes("bothid")) {
+    return { num_id: payload.num_id, id: payload.id, ...versioned }
+  }
+  // Default and /numid/ — numeric id presented as "id"
+  return { id: payload.num_id, ...versioned }
 }
 
 /** Ownership column: declared in table config, falls back to "user_id". */
@@ -182,7 +226,7 @@ async function getOwnedRow(
   const { data, error } = await supabase
     .from(resource)
     .select("*")
-    .eq("id", id)
+    .eq(idCol(id), id)
     .or(`${col}.eq.${accountId},${col}.eq.${adminId}`)
     .single()
 
@@ -217,7 +261,7 @@ export async function GET(
     const row = await getOwnedRow(resource!, id, account.id, locale, config)
     if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-    const res = NextResponse.json(applyVersionShape(rowToPayload(resource!, row), config.versions[version]))
+    const res = NextResponse.json(shape(rowToPayload(resource!, row), config.versions[version], behaviors))
     setStaleHeaders(res, behaviors)
     await applyDelay(behaviors)
     return res
@@ -306,7 +350,7 @@ export async function GET(
   if (error) return NextResponse.json({ error: "Query failed", detail: error.message }, { status: 500 })
 
   let shaped = (data ?? []).map((row: Record<string, unknown> & { data?: unknown }) =>
-    applyVersionShape(rowToPayload(resource!, row), config.versions[version])
+    shape(rowToPayload(resource!, row), config.versions[version], behaviors)
   )
 
   if (behaviors.includes("random")) shaped = shaped.sort(() => Math.random() - 0.5)
@@ -328,7 +372,7 @@ export async function POST(
 ) {
   const { segments } = await _params
   const parsed = parseSegments(segments)
-  const { locale, version, resource } = parsed
+  const { locale, version, behaviors, resource } = parsed
 
   const boot = await bootstrap(req, parsed)
   if ("error" in boot) return boot.error
@@ -384,7 +428,7 @@ export async function POST(
   if (error) return NextResponse.json({ error: "Insert failed", detail: error.message }, { status: 500 })
 
   await logAudit(account.id, "POST", resource!, data.id)
-  return NextResponse.json(applyVersionShape(data.data, config.versions[version]), { status: 201 })
+  return NextResponse.json(shape(rowToPayload(resource!, data), config.versions[version], behaviors), { status: 201 })
 }
 
 // ─── PUT ──────────────────────────────────────────────────────────────────────
@@ -395,7 +439,7 @@ export async function PUT(
 ) {
   const { segments } = await _params
   const parsed = parseSegments(segments)
-  const { version, resource, id } = parsed
+  const { version, behaviors, resource, id } = parsed
 
   if (!id) return NextResponse.json({ error: "ID required for PUT" }, { status: 400 })
 
@@ -413,7 +457,7 @@ export async function PUT(
   const { data: existing, error: fetchError } = await supabase
     .from(resource!)
     .select("*")
-    .eq("id", id)
+    .eq(idCol(id), id)
     .eq(col, account.id)
     .single()
 
@@ -439,11 +483,11 @@ export async function PUT(
 
   const merged = { ...existing.data, ...body }
   const { data, error } = await supabase
-    .from(resource!).update({ data: merged }).eq("id", id).select().single()
+    .from(resource!).update({ data: merged }).eq("id", existing.id).select().single()
   if (error) return NextResponse.json({ error: "Update failed", detail: error.message }, { status: 500 })
 
-  await logAudit(account.id, "PUT", resource!, id)
-  return NextResponse.json(applyVersionShape(data.data, config.versions[version]))
+  await logAudit(account.id, "PUT", resource!, existing.id)
+  return NextResponse.json(shape(rowToPayload(resource!, data), config.versions[version], behaviors))
 }
 
 // ─── DELETE ───────────────────────────────────────────────────────────────────
@@ -475,7 +519,7 @@ export async function DELETE(
   const { data: existing, error: fetchError } = await supabase
     .from(resource!)
     .select("*")
-    .eq("id", id)
+    .eq(idCol(id), id)
     .eq(col, account.id)
     .single()
 
@@ -486,9 +530,9 @@ export async function DELETE(
     return NextResponse.json({ error: "System rows cannot be deleted" }, { status: 403 })
   }
 
-  const { error } = await supabase.from(resource!).delete().eq("id", id)
+  const { error } = await supabase.from(resource!).delete().eq("id", existing.id)
   if (error) return NextResponse.json({ error: "Delete failed", detail: error.message }, { status: 500 })
 
-  await logAudit(account.id, "DELETE", resource!, id)
+  await logAudit(account.id, "DELETE", resource!, existing.id)
   return new NextResponse(null, { status: 204 })
 }
