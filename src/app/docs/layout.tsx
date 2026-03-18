@@ -2,15 +2,12 @@ import Link from "next/link"
 import { Suspense } from "react"
 import { Navbar } from "@/components/navbar"
 import { DocsLocalePicker } from "@/components/docs-locale-picker"
+import registry from "@/config/registry"
 
-const categories = [
-  { slug: "cats", label: "Cats" },
-  { slug: "movies", label: "Movies" },
-  { slug: "users", label: "Users" },
-  // Add more categories here as you build them out
-  // { slug: "products", label: "Products" },
-  // { slug: "posts", label: "Posts" },
-]
+const categories = Object.values(registry).map((config) => ({
+  slug: config.name,
+  label: config.label,
+}))
 
 export default function DocsLayout({ children }: { children: React.ReactNode }) {
   return (

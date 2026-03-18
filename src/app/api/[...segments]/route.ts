@@ -75,10 +75,22 @@ async function bootstrap(req: NextRequest, parsed: ParsedSegments): Promise<Boot
 
   const limited = await checkRateLimit(account)
   if (limited) {
+    const message =
+      limited.reason === "abuse" ? "Abuse detected — account flagged for review" :
+      limited.reason === "burst" ? `Burst limit exceeded (${limited.limit} req/min). Slow down.` :
+      `Daily limit of ${limited.limit} requests reached`
     return {
       error: NextResponse.json(
-        { error: "Rate limit exceeded" },
-        { status: 429, headers: { "X-RateLimit-Reset": limited.resetAt } }
+        { error: message, reason: limited.reason, retryAfter: limited.retryAfter },
+        {
+          status: 429,
+          headers: {
+            "X-RateLimit-Limit":     String(limited.limit),
+            "X-RateLimit-Remaining": "0",
+            "X-RateLimit-Reset":     limited.resetAt,
+            "Retry-After":           String(limited.retryAfter),
+          },
+        }
       )
     }
   }
