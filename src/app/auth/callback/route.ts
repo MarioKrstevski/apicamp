@@ -30,5 +30,6 @@ export async function GET(request: NextRequest) {
     { onConflict: "id", ignoreDuplicates: true }
   )
 
-  return NextResponse.redirect(new URL("/dashboard", appUrl))
+  const destination = isAdmin ? "/admin-dashboard" : "/dashboard"
+  return NextResponse.redirect(new URL(destination, appUrl))
 }
