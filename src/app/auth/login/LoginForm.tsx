@@ -18,7 +18,7 @@ export function LoginForm({ expiredError }: { expiredError: boolean }) {
     setLoading(true);
 
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
       setError(error.message);
@@ -27,8 +27,15 @@ export function LoginForm({ expiredError }: { expiredError: boolean }) {
       return;
     }
 
+    // Fetch role to decide where to redirect
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", data.user.id)
+      .single();
+
     router.refresh();
-    router.push("/dashboard");
+    router.push(profile?.role === "superadmin" ? "/admin-dashboard" : "/dashboard");
   }
 
   return (
