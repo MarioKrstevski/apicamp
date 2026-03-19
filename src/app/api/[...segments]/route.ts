@@ -20,6 +20,7 @@ import { applyVersionShape } from "@/lib/versioning"
 import { validateFields } from "@/lib/validation"
 import { getLocaleAdminId } from "@/lib/locales"
 import { logAudit } from "@/lib/audit"
+import { handleAuthRequest } from "@/lib/auth-practice-handlers"
 
 // ─── SEGMENT PARSER ───────────────────────────────────────────────────────────
 
@@ -33,6 +34,7 @@ type ParsedSegments = {
   behaviors: string[]
   resource: string | null   // = DB table name
   id: string | null
+  tail: string[]   // all segments from resource onwards — used by auth handler
 }
 
 function parseSegments(segments: string[]): ParsedSegments {
@@ -41,18 +43,20 @@ function parseSegments(segments: string[]): ParsedSegments {
   const behaviors: string[] = []
   let resource: string | null = null
   let id: string | null = null
+  let tail: string[] = []
 
   for (let i = 0; i < segments.length; i++) {
     const seg = segments[i]
-    if (LOCALES.has(seg))        { locale = seg; continue }
-    if (VERSIONS.has(seg))       { version = seg; continue }
-    if (BEHAVIORS.has(seg))      { behaviors.push(seg); continue }
+    if (LOCALES.has(seg))   { locale = seg; continue }
+    if (VERSIONS.has(seg))  { version = seg; continue }
+    if (BEHAVIORS.has(seg)) { behaviors.push(seg); continue }
     resource = seg
-    id = segments[i + 1] ?? null
+    id       = segments[i + 1] ?? null
+    tail     = segments.slice(i)   // ["auth", "basic", "signup"] or ["users", "123"]
     break
   }
 
-  return { locale, version, behaviors, resource, id }
+  return { locale, version, behaviors, resource, id, tail }
 }
 
 // ─── BOOTSTRAP ────────────────────────────────────────────────────────────────
@@ -94,6 +98,11 @@ async function bootstrap(req: NextRequest, parsed: ParsedSegments): Promise<Boot
         }
       )
     }
+  }
+
+  // Auth practice endpoints are handled separately — no table config needed
+  if (resource === "auth") {
+    return { account, config: null as unknown as TableConfig, parsed }
   }
 
   const config = getTableConfig(resource)
@@ -259,6 +268,9 @@ export async function GET(
 
   const boot = await bootstrap(req, parsed)
   if ("error" in boot) return boot.error
+  if (boot.parsed.resource === "auth") {
+    return handleAuthRequest(req, boot.parsed, boot.account, "GET")
+  }
   const { account, config } = boot
 
   const col = ownerCol(config)
@@ -375,6 +387,9 @@ export async function POST(
 
   const boot = await bootstrap(req, parsed)
   if ("error" in boot) return boot.error
+  if (boot.parsed.resource === "auth") {
+    return handleAuthRequest(req, boot.parsed, boot.account, "POST")
+  }
   const { account, config } = boot
 
   if (!account.everPaid) {
@@ -443,6 +458,9 @@ export async function PUT(
 
   const boot = await bootstrap(req, parsed)
   if ("error" in boot) return boot.error
+  if (boot.parsed.resource === "auth") {
+    return handleAuthRequest(req, boot.parsed, boot.account, "PUT")
+  }
   const { account, config } = boot
 
   if (!account.everPaid) {
@@ -499,6 +517,9 @@ export async function DELETE(
 
   const boot = await bootstrap(req, parsed)
   if ("error" in boot) return boot.error
+  if (boot.parsed.resource === "auth") {
+    return handleAuthRequest(req, boot.parsed, boot.account, "DELETE")
+  }
   const { account, config } = boot
 
   if (!account.everPaid) {
