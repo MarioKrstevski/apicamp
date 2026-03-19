@@ -32,6 +32,39 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
                 </Link>
               ))}
             </nav>
+
+            {/* Auth Practice */}
+            <div className="mt-6">
+              <p className="px-3 mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Auth Practice
+              </p>
+              {[
+                { slug: "auth/basic",   label: "Basic Auth" },
+                { slug: "auth/token",   label: "Token Auth" },
+                { slug: "auth/profile", label: "Profile Auth" },
+              ].map(item => (
+                <Link
+                  key={item.slug}
+                  href={`/docs/${item.slug}`}
+                  className="block rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+
+            {/* Learn */}
+            <div className="mt-4">
+              <p className="px-3 mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Learn
+              </p>
+              <Link
+                href="/docs/auth-explained"
+                className="block rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              >
+                Auth Explained
+              </Link>
+            </div>
           </aside>
 
           {/* Main content */}
