@@ -5,7 +5,6 @@ import { claimKey } from "@/lib/keys"
 const ERROR_MESSAGES: Record<string, string> = {
   not_found:       "Key not found or invalid",
   already_claimed: "This key has already been activated by someone else",
-  expired:         "This key has expired",
   self_claim:      "You cannot activate a gift key you created",
   already_paid:    "You already have or had a paid account — this key is for new users only",
 }

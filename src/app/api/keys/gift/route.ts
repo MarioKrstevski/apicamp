@@ -26,7 +26,12 @@ export async function POST() {
     return NextResponse.json({ error: "Gift key quota exhausted" }, { status: 403 })
   }
 
-  const result = await createGiftKey(user.id, sub.id)
+  let result
+  try {
+    result = await createGiftKey(user.id, sub.id)
+  } catch {
+    return NextResponse.json({ error: "Failed to generate gift key" }, { status: 500 })
+  }
 
   return NextResponse.json({
     raw:       result.raw,
