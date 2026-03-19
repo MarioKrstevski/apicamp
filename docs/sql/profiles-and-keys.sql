@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS api_keys (
   type              key_type    NOT NULL,
   status            key_status  NOT NULL DEFAULT 'unclaimed',
   expires_at        TIMESTAMPTZ,
-  pool_expires_days INTEGER,
+  pool_expires_days INTEGER CHECK (pool_expires_days IS NULL OR pool_expires_days > 0),
   activated_at      TIMESTAMPTZ,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   last_used_at      TIMESTAMPTZ
@@ -94,7 +94,8 @@ CREATE TABLE IF NOT EXISTS pool_key_requests (
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_pool_requests_status ON pool_key_requests (status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_pool_requests_status    ON pool_key_requests (status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_pool_requests_requester ON pool_key_requests (requester_id);
 
 -- ─── HELPER FUNCTIONS ────────────────────────────────────────────────────────
 
@@ -107,7 +108,7 @@ BEGIN
 END;
 $$;
 
-CREATE TRIGGER pool_key_requests_updated_at
+CREATE OR REPLACE TRIGGER pool_key_requests_updated_at
   BEFORE UPDATE ON pool_key_requests
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
@@ -128,7 +129,10 @@ ALTER TABLE pool_key_requests ENABLE ROW LEVEL SECURITY;
 
 -- Profiles: users see and edit only their own
 CREATE POLICY "profiles_select_own" ON profiles FOR SELECT USING (auth.uid() = id);
-CREATE POLICY "profiles_update_own" ON profiles FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "profiles_update_own" ON profiles
+  FOR UPDATE
+  USING (auth.uid() = id)
+  WITH CHECK (auth.uid() = id AND role = 'user');
 
 -- API keys: owners see their own keys; unclaimed keys are hidden (claimed via API route only)
 CREATE POLICY "api_keys_select_own" ON api_keys FOR SELECT USING (auth.uid() = owner_id OR auth.uid() = creator_id);
