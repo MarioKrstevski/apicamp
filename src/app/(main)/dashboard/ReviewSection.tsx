@@ -101,11 +101,13 @@ export function ReviewSection({ initialReview, profile: initialProfile }: Props)
     try {
       // Save avatar_url to profile if changed
       if (avatarUrl !== (profile.avatar_url ?? "")) {
-        await fetch("/api/profiles/me", {
+        const avatarRes = await fetch("/api/profiles/me", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ avatar_url: avatarUrl || null }),
         })
+        const avatarData = await avatarRes.json()
+        if (!avatarRes.ok) { setError(avatarData.error); return }
         setProfile(p => ({ ...p, avatar_url: avatarUrl || null }))
       }
 
@@ -284,6 +286,7 @@ export function ReviewSection({ initialReview, profile: initialProfile }: Props)
             setRating(review.rating)
             setProjectUrl(review.project_url ?? "")
             setProjectLabel(review.project_label ?? "")
+            setAvatarUrl(profile.avatar_url ?? "")
           }}
           className="text-sm text-primary underline underline-offset-4"
         >
@@ -311,6 +314,7 @@ export function ReviewSection({ initialReview, profile: initialProfile }: Props)
           setRating(review.rating)
           setProjectUrl(review.project_url ?? "")
           setProjectLabel(review.project_label ?? "")
+          setAvatarUrl(profile.avatar_url ?? "")
         }}
         className="text-sm text-primary underline underline-offset-4"
       >
