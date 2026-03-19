@@ -40,6 +40,9 @@ function ReviewCard({ review }: { review: ReviewRow }) {
     <div className="w-72 shrink-0 rounded-xl border border-border bg-card p-5 space-y-3">
       <div className="flex items-center gap-3">
         {p?.avatar_url ? (
+          // TODO: switch to next/image with remotePatterns once avatar upload
+          // via Supabase Storage is added — loading arbitrary user-supplied URLs
+          // leaks visitor IPs to external origins.
           <img
             src={p.avatar_url}
             alt={name}
