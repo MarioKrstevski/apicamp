@@ -14,15 +14,23 @@ export function GiftKeySection({ giftKeys, giftKeysEarned, giftKeysUsed }: Props
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
-  const canGenerate = giftKeysUsed < giftKeysEarned
+  const [localUsed, setLocalUsed] = useState(giftKeysUsed)
+  const canGenerate = localUsed < giftKeysEarned
 
   async function handleGenerate() {
-    setLoading(true); setError(null)
-    const res = await fetch("/api/keys/gift", { method: "POST" })
-    const data = await res.json()
-    setLoading(false)
-    if (!res.ok) { setError(data.error); return }
-    setNewKey(data.raw)
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch("/api/keys/gift", { method: "POST" })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error); return }
+      setNewKey(data.raw)
+      setLocalUsed(prev => prev + 1)
+    } catch {
+      setError("Network error — please try again")
+    } finally {
+      setLoading(false)
+    }
   }
 
   function copyKey() {
@@ -36,7 +44,7 @@ export function GiftKeySection({ giftKeys, giftKeysEarned, giftKeysUsed }: Props
     <section className="rounded-lg border border-border p-6 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="font-semibold text-foreground">Gift keys</h2>
-        <span className="text-xs text-muted-foreground">{giftKeysUsed} / {giftKeysEarned} used</span>
+        <span className="text-xs text-muted-foreground">{localUsed} / {giftKeysEarned} used</span>
       </div>
 
       {newKey && (

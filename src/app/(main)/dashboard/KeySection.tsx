@@ -19,11 +19,16 @@ export function KeySection({ activeKey, expiredKey, hasActiveSub, everPaid }: Pr
   async function handleGenerate() {
     setLoading(true)
     setError(null)
-    const res = await fetch("/api/keys/generate", { method: "POST" })
-    const data = await res.json()
-    setLoading(false)
-    if (!res.ok) { setError(data.error); return }
-    setNewKey(data.raw)
+    try {
+      const res = await fetch("/api/keys/generate", { method: "POST" })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error); return }
+      setNewKey(data.raw)
+    } catch {
+      setError("Network error — please try again")
+    } finally {
+      setLoading(false)
+    }
   }
 
   function copyKey() {

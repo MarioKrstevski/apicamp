@@ -238,7 +238,7 @@ export async function getExpiredKey(userId: string): Promise<ApiKeyRow | null> {
     .select("*")
     .eq("owner_id", userId)
     .eq("type", "personal")
-    .in("status", ["expired", "active"])
+    .eq("status", "expired")
     .order("created_at", { ascending: false })
     .limit(1)
     .single()
