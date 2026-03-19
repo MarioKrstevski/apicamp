@@ -204,8 +204,7 @@ export async function claimKey(
 
 /** Fetch the active personal key for a user (null if none / expired) */
 export async function getActiveKey(userId: string): Promise<ApiKeyRow | null> {
-  const supabase = await createClient()
-  const { data } = await supabase
+  const { data } = await createAdminClient()
     .from("api_keys")
     .select("*")
     .eq("owner_id", userId)
@@ -220,8 +219,7 @@ export async function getActiveKey(userId: string): Promise<ApiKeyRow | null> {
 
 /** Fetch all gift keys created by a user */
 export async function getGiftKeys(userId: string): Promise<ApiKeyRow[]> {
-  const supabase = await createClient()
-  const { data } = await supabase
+  const { data } = await createAdminClient()
     .from("api_keys")
     .select("*")
     .eq("creator_id", userId)
@@ -233,8 +231,7 @@ export async function getGiftKeys(userId: string): Promise<ApiKeyRow[]> {
 
 /** Fetch the most recent expired personal key (for the "expired" banner) */
 export async function getExpiredKey(userId: string): Promise<ApiKeyRow | null> {
-  const supabase = await createClient()
-  const { data } = await supabase
+  const { data } = await createAdminClient()
     .from("api_keys")
     .select("*")
     .eq("owner_id", userId)
