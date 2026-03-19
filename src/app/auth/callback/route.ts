@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse, type NextRequest } from "next/server"
 
 export async function GET(request: NextRequest) {
@@ -30,8 +31,10 @@ export async function GET(request: NextRequest) {
     { onConflict: "id", ignoreDuplicates: true }
   )
 
-  // Read the actual role from DB (trigger may have set it independently)
-  const { data: profile } = await client
+  // Read the actual role using service role client — the session cookie
+  // isn't reliably readable in the same request as exchangeCodeForSession,
+  // so auth.uid() may be null and the RLS SELECT policy would block the read.
+  const { data: profile } = await createAdminClient()
     .from("profiles")
     .select("role")
     .eq("id", userId)
