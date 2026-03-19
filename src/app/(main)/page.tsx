@@ -1,4 +1,5 @@
-import Link from "next/link";
+import Link from "next/link"
+import { WallOfLove } from "@/components/WallOfLove"
 
 export default function Home() {
   return (
@@ -72,6 +73,8 @@ Authorization: Bearer YOUR_API_KEY`}
           </pre>
         </div>
       </div>
+
+      <WallOfLove />
     </main>
-  );
+  )
 }
