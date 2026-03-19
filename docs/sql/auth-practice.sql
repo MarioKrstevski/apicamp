@@ -5,6 +5,17 @@
 -- Run in Supabase SQL Editor.
 -- ─────────────────────────────────────────────────────────────────────────────
 
+-- ─── SHARED HELPERS ─────────────────────────────────────────────────────────
+-- Idempotent — safe to run even if profiles-and-keys.sql was already applied.
+
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$;
+
 -- ─── TIER 1: BASIC ───────────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS auth_accounts_basic (
