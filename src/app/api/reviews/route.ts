@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     .from("reviews")
     .select("id")
     .eq("user_id", user.id)
-    .single()
+    .maybeSingle()
 
   const payload = {
     user_id:       user.id,
@@ -56,9 +56,9 @@ export async function POST(req: NextRequest) {
     approved_at:   null,
   }
 
-  const { error } = existing
-    ? await supabase.from("reviews").update(payload).eq("user_id", user.id)
-    : await supabase.from("reviews").insert(payload)
+  const { error } = await supabase
+    .from("reviews")
+    .upsert(payload, { onConflict: "user_id" })
 
   if (error) return NextResponse.json({ error: "Failed to save review" }, { status: 500 })
 
