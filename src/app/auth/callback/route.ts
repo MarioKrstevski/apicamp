@@ -30,6 +30,13 @@ export async function GET(request: NextRequest) {
     { onConflict: "id", ignoreDuplicates: true }
   )
 
-  const destination = isAdmin ? "/admin-dashboard" : "/dashboard"
+  // Read the actual role from DB (trigger may have set it independently)
+  const { data: profile } = await client
+    .from("profiles")
+    .select("role")
+    .eq("id", userId)
+    .single()
+
+  const destination = profile?.role === "superadmin" ? "/admin-dashboard" : "/dashboard"
   return NextResponse.redirect(new URL(destination, appUrl))
 }
