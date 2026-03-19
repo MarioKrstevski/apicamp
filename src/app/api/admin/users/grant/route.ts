@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 function addMonths(date: Date, months: number): Date {
   const d = new Date(date)
@@ -22,8 +23,10 @@ export async function POST(req: NextRequest) {
   const { email } = body as { email?: string }
   if (!email) return NextResponse.json({ error: "Email required" }, { status: 400 })
 
+  const admin = createAdminClient()
+
   // Look up user by email via admin API (service role required)
-  const { data: { users }, error: lookupError } = await supabase.auth.admin.listUsers({ perPage: 1000 })
+  const { data: { users }, error: lookupError } = await admin.auth.admin.listUsers({ perPage: 1000 })
   if (lookupError) return NextResponse.json({ error: "Failed to look up users" }, { status: 500 })
 
   const targetUser = users.find(u => u.email === email)
@@ -32,7 +35,7 @@ export async function POST(req: NextRequest) {
   const targetId = targetUser.id
   const expiresAt = addMonths(new Date(), 12)
 
-  const { error: subError } = await supabase.from("subscriptions").insert({
+  const { error: subError } = await admin.from("subscriptions").insert({
     user_id:          targetId,
     amount_paid:      0,
     base_price:       2100,
@@ -47,7 +50,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Failed to insert subscription" }, { status: 500 })
   }
 
-  await supabase.from("profiles").update({ ever_paid: true }).eq("id", targetId)
+  await admin.from("profiles").update({ ever_paid: true }).eq("id", targetId)
 
   return NextResponse.json({ success: true, email })
 }

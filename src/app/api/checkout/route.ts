@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 // TODO: replace with Paddle webhook handler once payments are live.
 // Flow will be: client redirects to Paddle checkout → Paddle POSTs webhook here
@@ -53,8 +54,9 @@ export async function POST(req: NextRequest) {
   }
 
   const expiresAt = addMonths(new Date(), months)
+  const admin = createAdminClient()
 
-  const { error: subError } = await supabase.from("subscriptions").insert({
+  const { error: subError } = await admin.from("subscriptions").insert({
     user_id:          user.id,
     amount_paid:      amountCents,
     base_price:       basePriceCents,
@@ -69,7 +71,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Failed to create subscription" }, { status: 500 })
   }
 
-  await supabase.from("profiles").update({ ever_paid: true }).eq("id", user.id)
+  await admin.from("profiles").update({ ever_paid: true }).eq("id", user.id)
 
   return NextResponse.json({ success: true })
 }
