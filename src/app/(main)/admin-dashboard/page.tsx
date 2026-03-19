@@ -1,9 +1,21 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { ReviewsPanel } from "./ReviewsPanel"
+import { GrantAccessPanel } from "./GrantAccessPanel"
 import type { ReviewWithProfile } from "./ReviewsPanel"
 
-export default async function AdminDashboardPage() {
+type Props = { searchParams: Promise<{ section?: string }> }
+
+const NAV_ITEMS = [
+  { id: "reviews",  label: "Reviews" },
+  { id: "users",    label: "Users" },
+] as const
+
+const COMING_SOON = ["YouTube videos", "Tutorials", "Repo links"]
+
+export default async function AdminDashboardPage({ searchParams }: Props) {
+  const { section = "reviews" } = await searchParams
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/auth/login")
@@ -36,43 +48,53 @@ export default async function AdminDashboardPage() {
         <p className="mt-1 text-sm text-muted-foreground">Superadmin tools</p>
       </div>
 
-      {/* Sidebar nav */}
       <div className="flex gap-8">
+        {/* Sidebar nav */}
         <nav className="w-40 shrink-0">
           <ul className="space-y-1">
-            <li>
-              <span className="block rounded-md bg-muted px-3 py-2 text-sm font-medium text-foreground">
-                Reviews
-              </span>
-            </li>
-            <li>
-              <span className="block rounded-md px-3 py-2 text-sm text-muted-foreground cursor-not-allowed">
-                YouTube videos
-                <span className="ml-1 text-xs opacity-60">(soon)</span>
-              </span>
-            </li>
-            <li>
-              <span className="block rounded-md px-3 py-2 text-sm text-muted-foreground cursor-not-allowed">
-                Tutorials
-                <span className="ml-1 text-xs opacity-60">(soon)</span>
-              </span>
-            </li>
-            <li>
-              <span className="block rounded-md px-3 py-2 text-sm text-muted-foreground cursor-not-allowed">
-                Repo links
-                <span className="ml-1 text-xs opacity-60">(soon)</span>
-              </span>
-            </li>
+            {NAV_ITEMS.map(item => (
+              <li key={item.id}>
+                <a
+                  href={`/admin-dashboard?section=${item.id}`}
+                  className={`block rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                    section === item.id
+                      ? "bg-muted text-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  }`}
+                >
+                  {item.label}
+                </a>
+              </li>
+            ))}
+            {COMING_SOON.map(label => (
+              <li key={label}>
+                <span className="block rounded-md px-3 py-2 text-sm text-muted-foreground/50 cursor-not-allowed">
+                  {label}
+                  <span className="ml-1 text-xs opacity-60">(soon)</span>
+                </span>
+              </li>
+            ))}
           </ul>
         </nav>
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <h2 className="text-lg font-medium text-foreground mb-4">Reviews</h2>
-          <ReviewsPanel
-            initialPending={(pendingResult.data ?? []) as unknown as ReviewWithProfile[]}
-            initialApproved={(approvedResult.data ?? []) as unknown as ReviewWithProfile[]}
-          />
+          {section === "reviews" && (
+            <>
+              <h2 className="text-lg font-medium text-foreground mb-4">Reviews</h2>
+              <ReviewsPanel
+                initialPending={(pendingResult.data ?? []) as unknown as ReviewWithProfile[]}
+                initialApproved={(approvedResult.data ?? []) as unknown as ReviewWithProfile[]}
+              />
+            </>
+          )}
+
+          {section === "users" && (
+            <>
+              <h2 className="text-lg font-medium text-foreground mb-4">Grant paid access</h2>
+              <GrantAccessPanel />
+            </>
+          )}
         </div>
       </div>
     </main>

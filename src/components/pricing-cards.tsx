@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { PatronCard } from "@/components/patron-card";
 
 // ─── Edit these to update the pricing page ────────────────────────────────
@@ -64,7 +65,33 @@ const BILLING_PERIODS: {
 
 export function PricingCards() {
   const [period, setPeriod] = useState<PeriodId>("yearly");
-  const activePeriod = BILLING_PERIODS.find((p) => p.id === period)!;
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+  const activePeriod = BILLING_PERIODS.find((p) => p.id === period)!
+
+  async function handleSubscribe() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: period }),
+      });
+      if (res.status === 401) {
+        router.push("/auth/signup?next=/pricing");
+        return;
+      }
+      const data = await res.json();
+      if (!res.ok) { setError(data.error); return; }
+      router.push("/dashboard");
+    } catch {
+      setError("Network error — please try again");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div>
@@ -148,13 +175,15 @@ export function PricingCards() {
               </li>
             ))}
           </ul>
+          {error && <p className="text-xs text-destructive mt-2">{error}</p>}
           <div className="mt-6">
-            <a
-              href="/register"
-              className="block w-full rounded-md bg-primary px-4 py-2 text-center text-sm font-medium text-primary-foreground hover:bg-primary/80 transition-colors"
+            <button
+              onClick={handleSubscribe}
+              disabled={loading}
+              className="block w-full rounded-md bg-primary px-4 py-2 text-center text-sm font-medium text-primary-foreground hover:bg-primary/80 disabled:opacity-50 transition-colors"
             >
-              Get full access
-            </a>
+              {loading ? "Processing…" : "Get full access"}
+            </button>
           </div>
         </div>
 

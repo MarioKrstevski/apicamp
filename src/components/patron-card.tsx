@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 // ─── Edit these to change patron tier config ───────────────────────────────
 const PRICE_PER_SEAT = 8;
@@ -15,8 +16,35 @@ function calcGiftKeys(amount: number) {
 
 export function PatronCard() {
   const [custom, setCustom] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
   const activeAmount = custom !== "" ? Number(custom) : DEFAULT_PRESET;
   const giftKeys = calcGiftKeys(activeAmount);
+
+  async function handleSubscribe() {
+    if (activeAmount < PRICE_PER_SEAT) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: "patron", amount: activeAmount }),
+      });
+      if (res.status === 401) {
+        router.push("/auth/signup?next=/pricing");
+        return;
+      }
+      const data = await res.json();
+      if (!res.ok) { setError(data.error); return; }
+      router.push("/dashboard");
+    } catch {
+      setError("Network error — please try again");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div className="rounded-lg border border-border p-6 flex flex-col">
@@ -91,13 +119,15 @@ export function PatronCard() {
         )}
       </div>
 
+      {error && <p className="text-xs text-destructive mb-2">{error}</p>}
       <div className="mt-auto">
-        <a
-          href="/register"
-          className="block w-full rounded-md border border-border px-4 py-2 text-center text-sm font-medium text-foreground hover:bg-muted transition-colors"
+        <button
+          onClick={handleSubscribe}
+          disabled={loading || activeAmount < PRICE_PER_SEAT}
+          className="block w-full rounded-md border border-border px-4 py-2 text-center text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50 transition-colors"
         >
-          Become a Patron
-        </a>
+          {loading ? "Processing…" : "Become a Patron"}
+        </button>
       </div>
     </div>
   );
