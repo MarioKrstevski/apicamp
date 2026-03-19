@@ -35,6 +35,9 @@ export async function POST(req: NextRequest) {
   const targetId = targetUser.id
   const expiresAt = addMonths(new Date(), 12)
 
+  // Ensure profile row exists before inserting subscription (FK constraint)
+  await admin.from("profiles").upsert({ id: targetId }, { onConflict: "id", ignoreDuplicates: true })
+
   const { error: subError } = await admin.from("subscriptions").insert({
     user_id:          targetId,
     amount_paid:      0,
