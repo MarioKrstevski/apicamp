@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 
-type ReviewWithProfile = {
+export type ReviewWithProfile = {
   id: string
   comment: string
   rating: number
@@ -99,7 +99,7 @@ function ReviewCard({
         {onApprove && (
           <button
             onClick={onApprove}
-            disabled={approving}
+            disabled={approving || deleting}
             className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/80 disabled:opacity-50 transition-colors"
           >
             {approving ? "Approving…" : "Approve"}
@@ -148,7 +148,8 @@ export function ReviewsPanel({ initialPending, initialApproved }: Props) {
     setError(null)
     try {
       const res = await fetch(`/api/admin/reviews/${id}/approve`, { method: "POST" })
-      if (!res.ok) { setError("Failed to approve"); return }
+      const data = await res.json()
+      if (!res.ok) { setError(data.error ?? "Failed to approve"); return }
       const item = pending.find(r => r.id === id)
       if (item) {
         setPending(p => p.filter(r => r.id !== id))
@@ -166,7 +167,8 @@ export function ReviewsPanel({ initialPending, initialApproved }: Props) {
     setError(null)
     try {
       const res = await fetch(`/api/admin/reviews/${id}`, { method: "DELETE" })
-      if (!res.ok) { setError("Failed to delete"); return }
+      const data = await res.json()
+      if (!res.ok) { setError(data.error ?? "Failed to delete"); return }
       setPending(p  => p.filter(r => r.id !== id))
       setApproved(a => a.filter(r => r.id !== id))
     } catch {

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { ReviewsPanel } from "./ReviewsPanel"
+import type { ReviewWithProfile } from "./ReviewsPanel"
 
 export default async function AdminDashboardPage() {
   const supabase = await createClient()
@@ -69,10 +70,8 @@ export default async function AdminDashboardPage() {
         <div className="flex-1 min-w-0">
           <h2 className="text-lg font-medium text-foreground mb-4">Reviews</h2>
           <ReviewsPanel
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            initialPending={(pendingResult.data ?? []) as any[]}
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            initialApproved={(approvedResult.data ?? []) as any[]}
+            initialPending={(pendingResult.data ?? []) as unknown as ReviewWithProfile[]}
+            initialApproved={(approvedResult.data ?? []) as unknown as ReviewWithProfile[]}
           />
         </div>
       </div>
