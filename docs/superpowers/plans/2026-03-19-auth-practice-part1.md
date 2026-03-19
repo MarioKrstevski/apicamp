@@ -19,7 +19,7 @@
 - `src/app/docs/auth/basic/page.tsx` — docs for tier 1
 - `src/app/docs/auth/token/page.tsx` — docs for tier 2
 - `src/app/docs/auth/profile/page.tsx` — docs for tier 3
-- `src/app/(main)/auth-explained/page.tsx` — knowledge page
+- `src/app/docs/auth-explained/page.tsx` — knowledge page
 
 **Modified files:**
 - `src/app/api/[...segments]/route.ts` — add `tail` to ParsedSegments, detect auth resource, dispatch
@@ -1504,11 +1504,11 @@ git commit -m "feat: add auth docs pages and sidebar section for all 3 tiers"
 
 ## Task 7: /auth-explained page
 
-**Files:** Create `src/app/(main)/auth-explained/page.tsx`
+**Files:** Create `src/app/docs/auth-explained/page.tsx`
 
 A standalone knowledge page — no API reference, pure teaching. Server Component, static content.
 
-- [ ] **Step 1: Create `src/app/(main)/auth-explained/page.tsx`**
+- [ ] **Step 1: Create `src/app/docs/auth-explained/page.tsx`**
 
 Sections (prose + occasional inline code):
 
@@ -1533,7 +1533,7 @@ In `src/app/docs/layout.tsx`, below the Auth Practice section, add a "Learn" sec
     Learn
   </p>
   <Link
-    href="/auth-explained"
+    href="/docs/auth-explained"
     className="block rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
   >
     Auth Explained
@@ -1548,7 +1548,7 @@ pnpm build
 
 - [ ] **Step 4: Commit**
 ```bash
-git add src/app/(main)/auth-explained/
+git add src/app/docs/auth-explained/
 git commit -m "feat: add /auth-explained knowledge page"
 ```
 
