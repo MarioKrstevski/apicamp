@@ -40,6 +40,16 @@ function StarPicker({ value, onChange }: { value: number; onChange: (v: number) 
   )
 }
 
+function StarDisplay({ value }: { value: number }) {
+  return (
+    <div className="flex gap-0.5">
+      {[1, 2, 3, 4, 5].map(n => (
+        <span key={n} className={`text-lg ${n <= value ? "text-amber-400" : "text-muted-foreground/20"}`}>★</span>
+      ))}
+    </div>
+  )
+}
+
 export function ReviewSection({ initialReview, profile: initialProfile }: Props) {
   const [review, setReview]     = useState<Review | null>(initialReview)
   const [profile, setProfile]   = useState(initialProfile)
@@ -265,6 +275,7 @@ export function ReviewSection({ initialReview, profile: initialProfile }: Props)
             Pending approval
           </span>
         </div>
+        <StarDisplay value={review.rating} />
         <p className="text-sm text-muted-foreground italic">&ldquo;{review.comment}&rdquo;</p>
         <button
           onClick={() => {
@@ -291,6 +302,7 @@ export function ReviewSection({ initialReview, profile: initialProfile }: Props)
           Live on landing page
         </span>
       </div>
+      <StarDisplay value={review.rating} />
       <p className="text-sm text-muted-foreground italic">&ldquo;{review.comment}&rdquo;</p>
       <button
         onClick={() => {
