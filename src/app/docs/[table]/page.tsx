@@ -121,7 +121,7 @@ export default async function TableDocsPage({ params, searchParams }: Props) {
         .eq(ownerCol, localeAdminId)
         .order("created_at", { ascending: false })
         .limit(8)
-      if (data) sampleRows = data as Record<string, unknown>[]
+      if (data) sampleRows = data as unknown as Record<string, unknown>[]
     } catch {
       sampleRows = []
     }
@@ -152,7 +152,7 @@ export default async function TableDocsPage({ params, searchParams }: Props) {
               max {config.maxUserRows} rows/user
             </span>
           )}
-          {config.searchable && config.searchable !== false && (
+          {config.searchable && (
             <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">
               searchable
             </span>
@@ -225,7 +225,7 @@ export default async function TableDocsPage({ params, searchParams }: Props) {
                 filter by: {config.filterable.join(", ")}
               </p>
             )}
-            {config.searchable && config.searchable !== false && (
+            {config.searchable && (
               <p className="text-muted-foreground">
                 <span className="font-mono text-foreground">?search=</span>{" "}
                 full-text search

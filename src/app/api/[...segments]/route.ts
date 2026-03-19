@@ -68,10 +68,11 @@ async function bootstrap(req: NextRequest, parsed: ParsedSegments): Promise<Boot
   }
 
   const apiKey = req.headers.get("x-api-key")
-  const account = await validateApiKey(apiKey)
-  if (!account) {
-    return { error: NextResponse.json({ error: "Invalid or missing API key" }, { status: 401 }) }
+  const keyResult = await validateApiKey(apiKey)
+  if (!keyResult.ok) {
+    return { error: NextResponse.json({ error: keyResult.message }, { status: keyResult.status }) }
   }
+  const { account } = keyResult
 
   const limited = await checkRateLimit(account)
   if (limited) {
@@ -376,12 +377,8 @@ export async function POST(
   if ("error" in boot) return boot.error
   const { account, config } = boot
 
-  if (account.tier === "free") {
+  if (!account.everPaid) {
     return NextResponse.json({ error: "Writing data requires a paid account" }, { status: 403 })
-  }
-
-  if (account.role === "locale_admin" && account.locale !== parsed.locale) {
-    return NextResponse.json({ error: "You can only write to your own locale" }, { status: 403 })
   }
 
   let body: Record<string, unknown>
@@ -448,7 +445,7 @@ export async function PUT(
   if ("error" in boot) return boot.error
   const { account, config } = boot
 
-  if (account.tier === "free") {
+  if (!account.everPaid) {
     return NextResponse.json({ error: "Writing data requires a paid account" }, { status: 403 })
   }
 
@@ -504,7 +501,7 @@ export async function DELETE(
   if ("error" in boot) return boot.error
   const { account, config } = boot
 
-  if (account.tier === "free") {
+  if (!account.everPaid) {
     return NextResponse.json({ error: "Writing data requires a paid account" }, { status: 403 })
   }
   if (account.role === "locale_admin") {

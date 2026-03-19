@@ -1,21 +1,30 @@
-// Stub — pending implementation (see CLAUDE.md task list)
+// lib/auth.ts
 
 export type Account = {
   id: string
-  tier: "free" | "paid"
-  role: "user" | "locale_admin" | "superadmin"
-  locale?: string
+  role: "user" | "locale_admin" | "youtuber" | "superadmin"
+  isBlocked: boolean
+  everPaid: boolean
 }
 
+/** Discriminated return type — lets bootstrap emit spec-correct error messages */
+export type ValidateKeyResult =
+  | { ok: true;  account: Account }
+  | { ok: false; status: 401 | 403; message: string }
+
 /**
- * Temporary stub: treat missing/any API key as a public free account.
- * Uses a valid UUID so queries against uuid columns succeed.
+ * Validates an API key from the x-api-key header.
+ * Implementation in Task 5 — stub kept until then.
  */
-export async function validateApiKey(_key: string | null): Promise<Account | null> {
+export async function validateApiKey(_key: string | null): Promise<ValidateKeyResult> {
+  // TODO: implement in Task 5
   return {
-    id: "00000000-0000-0000-0000-000000000000",
-    tier: "free",
-    role: "user",
-    locale: "en"
+    ok: true,
+    account: {
+      id: "00000000-0000-0000-0000-000000000000",
+      role: "user",
+      isBlocked: false,
+      everPaid: false,
+    },
   }
 }

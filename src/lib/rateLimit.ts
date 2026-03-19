@@ -4,8 +4,7 @@ import type { Account } from "@/lib/auth"
 // ─── Limits ───────────────────────────────────────────────────────────────────
 
 const LIMITS = {
-  free: { daily: 350,  minute: 70  },
-  paid: { daily: 1750, minute: 350 },
+  default: { daily: 1750, minute: 350 },
 } as const
 
 /** Hard cap — blocked regardless of tier. High count in DB makes abuse visible. */
@@ -57,7 +56,7 @@ export async function checkRateLimit(account: Account): Promise<RateLimitResult>
   }
 
   const { daily_count, minute_count } = data[0] as { daily_count: number; minute_count: number }
-  const limits = LIMITS[account.tier]
+  const limits = LIMITS.default
 
   // Abuse check first — hard cap regardless of tier
   if (daily_count > ABUSE_DAILY) {
