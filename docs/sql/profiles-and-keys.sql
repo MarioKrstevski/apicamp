@@ -68,7 +68,7 @@ CREATE INDEX IF NOT EXISTS idx_api_keys_status   ON api_keys (status);
 
 CREATE TABLE IF NOT EXISTS subscriptions (
   id                UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id           UUID        NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  user_id           UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   amount_paid       INTEGER     NOT NULL,
   base_price        INTEGER     NOT NULL,
   gift_keys_earned  INTEGER     NOT NULL DEFAULT 0,
