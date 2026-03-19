@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { createPersonalKey, regeneratePersonalKey, getExpiredKey } from "@/lib/keys"
 
 // POST /api/keys/generate
@@ -36,7 +37,7 @@ export async function POST() {
   }
 
   // Update ever_paid on profile (best-effort — failure is logged but not fatal)
-  const { error: profileError } = await supabase
+  const { error: profileError } = await createAdminClient()
     .from("profiles")
     .update({ ever_paid: true })
     .eq("id", user.id)

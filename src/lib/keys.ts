@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 // ─── Pure utilities (no DB, fully testable) ───────────────────────────────────
 
@@ -58,11 +59,11 @@ export type ClaimResult =
 export async function createPersonalKey(
   userId: string
 ): Promise<{ raw: string; row: ApiKeyRow }> {
-  const supabase = await createClient()
+  const admin = createAdminClient()
   const raw = generateRawKey()
   const now = new Date()
 
-  const { data, error } = await supabase
+  const { data, error } = await admin
     .from("api_keys")
     .insert({
       key_hash:     hashKey(raw),
@@ -88,10 +89,10 @@ export async function createPersonalKey(
 export async function regeneratePersonalKey(
   userId: string
 ): Promise<{ raw: string; row: ApiKeyRow }> {
-  const supabase = await createClient()
+  const admin = createAdminClient()
 
   // Revoke all existing personal keys for this user
-  await supabase
+  await admin
     .from("api_keys")
     .update({ status: "revoked" })
     .eq("owner_id", userId)
@@ -110,10 +111,10 @@ export async function createGiftKey(
   userId: string,
   subscriptionId: string
 ): Promise<{ raw: string; row: ApiKeyRow }> {
-  const supabase = await createClient()
+  const admin = createAdminClient()
   const raw = generateRawKey()
 
-  const { data, error } = await supabase
+  const { data, error } = await admin
     .from("api_keys")
     .insert({
       key_hash:   hashKey(raw),
@@ -129,7 +130,7 @@ export async function createGiftKey(
   if (error || !data) throw new Error(error?.message ?? "Failed to create gift key")
 
   // Increment gift_keys_used
-  await supabase.rpc("increment_gift_keys_used", { p_subscription_id: subscriptionId })
+  await admin.rpc("increment_gift_keys_used", { p_subscription_id: subscriptionId })
 
   return { raw, row: dbRowToApiKeyRow(data) }
 }
@@ -142,11 +143,11 @@ export async function claimKey(
   rawKey: string,
   claimantId: string
 ): Promise<ClaimResult> {
-  const supabase = await createClient()
+  const admin = createAdminClient()
   const hash = hashKey(rawKey)
 
   // Look up key
-  const { data: key } = await supabase
+  const { data: key } = await admin
     .from("api_keys")
     .select("*")
     .eq("key_hash", hash)
@@ -161,7 +162,7 @@ export async function claimKey(
   }
 
   // Check claimant ever_paid
-  const { data: profile } = await supabase
+  const { data: profile } = await admin
     .from("profiles")
     .select("ever_paid")
     .eq("id", claimantId)
@@ -177,7 +178,7 @@ export async function claimKey(
   )
 
   // Conditional update — race-safe: only succeeds if still unclaimed/donated
-  const { data: updated, error } = await supabase
+  const { data: updated, error } = await admin
     .from("api_keys")
     .update({
       owner_id:     claimantId,
@@ -193,7 +194,7 @@ export async function claimKey(
   if (error || !updated) return { success: false, error: "already_claimed" }
 
   // Mark ever_paid on claimant profile
-  await supabase
+  await admin
     .from("profiles")
     .update({ ever_paid: true })
     .eq("id", claimantId)
